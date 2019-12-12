@@ -17,7 +17,7 @@ def main():
     except Exception:
         print("Couldn't load weights!")
     episode_count = 500
-    max_episode_length = 100
+    max_episode_length = 400
 
     for i in range(episode_count):
         state = env.reset()

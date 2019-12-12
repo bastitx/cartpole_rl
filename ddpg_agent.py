@@ -8,7 +8,7 @@ from random_process import OrnsteinUhlenbeckProcess
 
 class DDPGAgent():
     def __init__(self, state_space, action_space, ActorModel, CriticModel, gamma=0.99, epsilon=1.0, epsilon_min=0.1,
-                    epsilon_decay=0.99999, lr_actor=0.0001, lr_critic=0.001, tau=0.001, batch_size=64):
+                    epsilon_decay=0.9999, lr_actor=0.0001, lr_critic=0.001, tau=0.001, batch_size=64):
         self.action_space = action_space
         self.state_space = state_space
         self.gamma = gamma #discount
@@ -32,7 +32,10 @@ class DDPGAgent():
         hard_update(self.critic_target, self.critic)
     
     def act(self, state):
-        action = np.clip(self.actor(torch.tensor(state).float()).detach().numpy() + self.epsilon * self.random_process.sample(), -1, 1)
+        action = self.actor(torch.tensor(state).float()).detach().numpy()
+        #action += self.epsilon * self.random_process.sample()
+        action += np.random.normal(scale=self.epsilon)
+        action = np.clip(action, -1., 1.)
         self.epsilon = max(self.epsilon*self.epsilon_decay, self.epsilon_min)
         return action
     

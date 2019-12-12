@@ -12,6 +12,7 @@ class ActorModel(nn.Module):
         self.fc1 = nn.Linear(self.state_space.shape[0], 400)
         self.fc2 = nn.Linear(400, 300)
         self.fc3 = nn.Linear(300, self.action_space.shape[0])
+        
         self.init_weights()
 
     def init_weights(self):
