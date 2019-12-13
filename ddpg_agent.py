@@ -72,28 +72,32 @@ class DDPGAgent():
         soft_update(self.actor_target, self.actor, self.tau)
         soft_update(self.critic_target, self.critic, self.tau)
     
-    def load_weights(self, output, epoch):
+    def load_weights(self, output, epoch, memory=None, optim=None):
         if output is None: return
 
-        self.actor.load_state_dict(
-            torch.load('{}/actor-{}.pkl'.format(output, epoch))
-        )
+        self.actor.load_state_dict(torch.load('{}/actor-{}.pkl'.format(output, epoch)))
+        self.critic.load_state_dict(torch.load('{}/critic-{}.pkl'.format(output, epoch)))
 
-        self.critic.load_state_dict(
-            torch.load('{}/critic-{}.pkl'.format(output, epoch))
-        )
+        if memory is not None:
+            memories = torch.load('{}/memory-{}.pkl'.format(output, memory))
+            for m in memories:
+                self.memory.push(m)
+
+        if optim is not None:
+            self.optim_actor.load_state_dict(torch.load('{}/optim_a-{}.pkl'.format(output, optim)))
+            self.optim_critic.load_state_dict(torch.load('{}/optim_c-{}.pkl'.format(output, optim)))
 
 
-    def save_model(self,output, epoch):
-        torch.save(
-            self.actor.state_dict(),
-            '{}/actor-{}.pkl'.format(output, epoch)
-        )
-        torch.save(
-            self.critic.state_dict(),
-            '{}/critic-{}.pkl'.format(output, epoch)
-        )
+    def save_model(self,output, epoch, memory=None):
+        torch.save(self.actor.state_dict(), '{}/actor-{}.pkl'.format(output, epoch))
+        torch.save(self.critic.state_dict(), '{}/critic-{}.pkl'.format(output, epoch))
 
+        if memory is not None:
+            torch.save(self.memory.memory, '{}/memory-{}.pkl'.format(output, memory))
+        
+        if optim is not None:
+            torch.save(self.optim_actor.state_dict(), '{}/optim_a-{}.pkl'.format(output, optim))
+            torch.save(self.optim_critic.state_dict(), '{}/optim_c-{}.pkl'.format(output, optim))
         
 
         
