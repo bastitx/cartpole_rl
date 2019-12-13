@@ -11,11 +11,10 @@ class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.do_simulation(a, self.frame_skip)
         ob = self._get_obs()
         #ob[1] += np.pi #starts at bottom
-        while ob[1] >= np.pi:
+        ob[1] = ob[1] % (2*np.pi)
+        if ob[1] >= np.pi:
             ob[1] -= 2*np.pi
-        while ob[1] < -np.pi:
-            ob[1] += 2*np.pi
-
+        
         reward = np.cos(ob[1])-0.1*np.abs(ob[0])+1.2
 
         notdone = np.isfinite(ob).all() and (np.abs(ob[1]) <= .4)
