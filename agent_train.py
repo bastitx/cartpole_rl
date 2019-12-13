@@ -6,12 +6,12 @@ import torch
 import sys
 
 def main():
-    global env, agent, epoch
+    global env, agent, epoch, train
     env = InvertedPendulumEnv()
 
     env.seed(0)
-    agent = DDPGAgent(env.observation_space, env.action_space, ActorModel, CriticModel, epsilon=0.1)
-    epoch = 2299
+    agent = DDPGAgent(env.observation_space, env.action_space, ActorModel, CriticModel, epsilon=1.0)
+    epoch = 0
     try:
         agent.load_weights('models', epoch)
         print("loaded weights")
@@ -49,7 +49,9 @@ def main():
             done = True
         
     env.close()
-    agent.save_model('models', epoch, epoch)
+    if train:
+        agent.save_model('models', epoch)
+        print("Saved model")
 
 
 if __name__ == '__main__':
@@ -57,6 +59,7 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         env.close()
-        agent.save_model('models', epoch, epoch)
-        print("Saved model")
+        if train:
+            agent.save_model('models', epoch)
+            print("Saved model")
     sys.exit(0)
