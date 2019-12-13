@@ -8,20 +8,19 @@ import sys
 def main():
     global env, agent, epoch, train
     env = InvertedPendulumEnv()
+    train = True
+    max_iterations = 100000
+    warmup = 512
+    max_epoch_length = 200
+    epoch = 0
 
     env.seed(0)
     agent = DDPGAgent(env.observation_space, env.action_space, ActorModel, CriticModel, epsilon=1.0)
-    epoch = 0
     try:
-        agent.load_weights('models', epoch)
+        agent.load_weights('models', epoch, not train)
         print("loaded weights")
     except Exception:
         print("Couldn't load weights!")
-
-    max_iterations = 100000
-    warmup = 20000
-    max_epoch_length = 400
-    train = True
     
     epoch_reward = 0
     last_epoch_start = -1
@@ -31,7 +30,7 @@ def main():
         if done:
             epoch += 1
             epoch_length = i - last_epoch_start
-            print("{}/{}: avg.reward: {}, length: {}, epsilon: {}".format(i,max_iterations, epoch_reward/epoch_length, epoch_length, agent.epsilon))
+            print("{}/{}: epoch: {}, avg.reward: {:.3f}, length: {}, epsilon: {:.3f}".format(i,max_iterations, epoch, epoch_reward/epoch_length, epoch_length, agent.epsilon))
             state = env.reset()
             epoch_reward = 0
             last_epoch_start = i

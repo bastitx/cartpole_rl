@@ -72,7 +72,7 @@ class DDPGAgent():
         soft_update(self.actor_target, self.actor, self.tau)
         soft_update(self.critic_target, self.critic, self.tau)
     
-    def load_weights(self, output, epoch):
+    def load_weights(self, output, epoch, memory=True):
         if output is None: return
 
         checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(output, epoch))
@@ -82,9 +82,9 @@ class DDPGAgent():
         self.critic_target.load_state_dict(checkpoint['critic_target'])
         self.optim_actor.load_state_dict(checkpoint['optim_actor'])
         self.optim_critic.load_state_dict(checkpoint['optim_critic'])
-
-        for m in checkpoint['memory']:
-            self.memory.push(m)
+        if memory: 
+            for m in checkpoint['memory']:
+                self.memory.push(m.state, m.action, m.next_state, m.reward, m.done)
 
     def save_model(self,output, epoch):
         torch.save({
