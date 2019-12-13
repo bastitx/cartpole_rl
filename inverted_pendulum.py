@@ -15,10 +15,12 @@ class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         if ob[1] >= np.pi:
             ob[1] -= 2*np.pi
         
-        reward = np.cos(ob[1])-0.1*ob[0]**2+1.4
+        reward = np.cos(ob[1])-0.1*ob[0]**2-0.1*np.abs(ob[3])+1.6
 
         notdone = np.isfinite(ob).all() and (np.abs(ob[0]) <= 1.95)
         done = not notdone
+        if done:
+            reward = 0
         return ob, reward, done, {}
 
     def reset_model(self):

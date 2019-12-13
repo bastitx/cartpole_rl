@@ -30,7 +30,7 @@ def main():
         if done:
             episode += 1
             episode_length = i - last_episode_start
-            print("{}/{}: epoch: {}, avg.reward: {:.3f}, length: {}, epsilon: {:.3f}".format(i,max_iterations, episode, episode_reward/episode_length, episode_length, agent.epsilon))
+            print("{}/{}: episode: {}, avg.reward: {:.3f}, length: {}, epsilon: {:.3f}".format(i,max_iterations, episode, episode_reward/episode_length, episode_length, agent.epsilon))
             state = env.reset()
             episode_reward = 0
             last_episode_start = i
