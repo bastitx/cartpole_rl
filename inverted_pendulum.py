@@ -15,9 +15,9 @@ class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         if ob[1] >= np.pi:
             ob[1] -= 2*np.pi
         
-        reward = np.cos(ob[1])-0.1*np.abs(ob[0])+1.2
+        reward = np.cos(ob[1])-0.1*ob[0]**2+1.4
 
-        notdone = np.isfinite(ob).all() #and (np.abs(ob[1]) <= .4)
+        notdone = np.isfinite(ob).all() and (np.abs(ob[0]) <= 1.95)
         done = not notdone
         return ob, reward, done, {}
 
