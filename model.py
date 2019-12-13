@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class ActorModel(nn.Module):
-    def __init__(self, state_space, action_space):
+    def __init__(self, state_space, action_space, init_w=0.003):
         super().__init__()
         self.action_space = action_space
         self.state_space = state_space
@@ -13,12 +13,12 @@ class ActorModel(nn.Module):
         self.fc2 = nn.Linear(400, 300)
         self.fc3 = nn.Linear(300, self.action_space.shape[0])
         
-        self.init_weights()
+        self.init_weights(init_w)
 
-    def init_weights(self):
+    def init_weights(self, init_w):
         self.fc1.weight.data.uniform_(-1./np.sqrt(self.state_space.shape[0]), 1./np.sqrt(self.state_space.shape[0]))
         self.fc2.weight.data.uniform_(-1./np.sqrt(400), 1./np.sqrt(400))
-        self.fc3.weight.data.uniform_(-0.003, 0.003)
+        self.fc3.weight.data.uniform_(-init_w, init_w)
 
 
     def forward(self, x):
@@ -29,7 +29,7 @@ class ActorModel(nn.Module):
 
 
 class CriticModel(nn.Module):
-    def __init__(self, state_space, action_space):
+    def __init__(self, state_space, action_space, init_w=0.0003):
         super().__init__()
         self.action_space = action_space
         self.state_space = state_space
@@ -38,12 +38,12 @@ class CriticModel(nn.Module):
         self.fc2 = nn.Linear(400+self.action_space.shape[0], 300)
         self.fc3 = nn.Linear(300, 1)
 
-        self.init_weights()
+        self.init_weights(init_w)
     
-    def init_weights(self):
+    def init_weights(self, init_w):
         self.fc1.weight.data.uniform_(-1./np.sqrt(self.state_space.shape[0]), 1./np.sqrt(self.state_space.shape[0]))
         self.fc2.weight.data.uniform_(-1./np.sqrt(400+self.action_space.shape[0]), 1./np.sqrt(400+self.action_space.shape[0]))
-        self.fc3.weight.data.uniform_(-0.0003, 0.0003)
+        self.fc3.weight.data.uniform_(-init_w, init_w)
 
     def forward(self, xs):
         x, a = xs

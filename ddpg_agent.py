@@ -8,7 +8,7 @@ from random_process import OrnsteinUhlenbeckProcess
 
 class DDPGAgent():
     def __init__(self, state_space, action_space, ActorModel, CriticModel, gamma=0.99, epsilon=1.0, epsilon_min=0.1,
-                    epsilon_decay=0.99995, lr_actor=0.0001, lr_critic=0.001, tau=0.001, batch_size=64):
+                    epsilon_decay=0.99999, lr_actor=0.0001, lr_critic=0.001, tau=0.001, batch_size=64, memory_size=50000):
         self.action_space = action_space
         self.state_space = state_space
         self.gamma = gamma #discount
@@ -18,7 +18,7 @@ class DDPGAgent():
         self.lr_actor = lr_actor
         self.lr_critic = lr_critic
         self.tau = tau
-        self.random_process = OrnsteinUhlenbeckProcess(size=self.action_space.shape[0], theta=0.15, mu=0, sigma=0.2)
+        self.random_process = OrnsteinUhlenbeckProcess(size=self.action_space.shape[0], theta=0.15, mu=0, sigma=0.8) #normally sigma=0.2
         self.batch_size = batch_size
         self.actor = ActorModel(self.state_space, self.action_space)
         self.actor_target = ActorModel(self.state_space, self.action_space)
@@ -26,7 +26,7 @@ class DDPGAgent():
         self.critic_target = CriticModel(self.state_space, self.action_space)
         self.optim_actor = torch.optim.Adam(self.actor.parameters(), lr=self.lr_actor)
         self.optim_critic = torch.optim.Adam(self.critic.parameters(), lr=self.lr_critic)#, weight_decay=0.01)
-        self.memory = ReplayMemory(50000)
+        self.memory = ReplayMemory(memory_size)
 
         hard_update(self.actor_target, self.actor)
         hard_update(self.critic_target, self.critic)
