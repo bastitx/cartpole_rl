@@ -5,7 +5,7 @@ from gym.envs.mujoco import mujoco_env
 class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
         utils.EzPickle.__init__(self)
-        mujoco_env.MujocoEnv.__init__(self, '/Users/bastian/Development/master/testing/inverted_pendulum.xml', 2)
+        mujoco_env.MujocoEnv.__init__(self, '/Users/bastian/Development/master/cartpole_rl/inverted_pendulum.xml', 2)
 
     def step(self, a):
         self.do_simulation(a, self.frame_skip)
