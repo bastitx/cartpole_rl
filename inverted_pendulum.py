@@ -2,6 +2,7 @@ import numpy as np
 from gym import utils, spaces
 import mujoco_env
 import re
+import mujoco_py
 
 XML = '''
 <mujoco model="inverted pendulum">
@@ -38,20 +39,20 @@ motor_gain=1 #3
 cart_mass=10 #4
 pole_length=0.6 #5
 pole_mass=5 #6
-param_space=spaces.Box(np.array([0.01, 0.01, 20, 0.1, 1, 0.1, 1]), np.array([3, 3, 500, 2, 100, 20, 20]))
 
 class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
         utils.EzPickle.__init__(self)
-        params = param_space.sample()
+        self.parameter_space = spaces.Box(np.array([0.01, 0.01, 20, 0.1, 1, 0.1, 1]), np.array([3, 3, 500, 2, 100, 20, 20])) 
+        self.params = self.parameter_space.sample()
         xml_str = XML.format(
-            slider_damping=params[0],
-            hinge_damping=params[1],
-            motor_gear=params[2],
-            motor_gain=params[3],
-            cart_mass=params[4],
-            pole_length=params[5],
-            pole_mass=params[6]
+            slider_damping=self.params[0],
+            hinge_damping=self.params[1],
+            motor_gear=self.params[2],
+            motor_gain=self.params[3],
+            cart_mass=self.params[4],
+            pole_length=self.params[5],
+            pole_mass=self.params[6]
         )
         mujoco_env.MujocoEnv.__init__(self, xml_str, 2)
 

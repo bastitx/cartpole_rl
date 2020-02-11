@@ -31,7 +31,7 @@ def main():
     env = InvertedPendulumEnv()
 
     env.seed(0)
-    agent = DDPGAgent(env.observation_space, env.action_space, ActorModel, CriticModel, args.gamma, args.epsilon, args.epsilon_min,
+    agent = DDPGAgent(env.observation_space, env.action_space, env.parameter_space, ActorModel, CriticModel, args.gamma, args.epsilon, args.epsilon_min,
                     args.epsilon_decay, args.lr_actor, args.lr_critic, args.tau, args.batch_size, args.memory_size)
     if args.resume_episode > 0:
         try:
@@ -50,16 +50,19 @@ def main():
             episode += 1
             episode_length = i - last_episode_start
             print("{}/{}: episode: {}, avg.reward: {:.3f}, length: {}, epsilon: {:.3f}".format(i,args.max_iterations, episode, episode_reward/episode_length, episode_length, agent.epsilon))
+            env.close()
+            env = InvertedPendulumEnv()
+            env.seed(0)
             state = env.reset()
             episode_reward = 0
             last_episode_start = i
         if args.mode is not 'train':
             env.render()
-        action = agent.act(state)
+        action = agent.act(state, env.params)
         next_state, reward, done, _ = env.step(action)
         #print(state[1], action[0], reward)
         episode_reward += reward
-        agent.remember([state], [action], [next_state], [reward], [done])
+        agent.remember([state], [env.params], [action], [next_state], [reward], [done])
         if args.mode is 'train' and i >= args.warmup:
             agent.update()
         state = next_state
