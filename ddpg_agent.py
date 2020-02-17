@@ -8,11 +8,10 @@ from random_process import OrnsteinUhlenbeckProcess
 
 
 class DDPGAgent():
-    def __init__(self, state_space, action_space, parameter_space, ActorModel, CriticModel, gamma=0.99, epsilon=1.0, epsilon_min=0.1,
+    def __init__(self, state_shape, action_shape, ActorModel, CriticModel, gamma=0.99, epsilon=1.0, epsilon_min=0.1,
                  epsilon_decay=0.99995, lr_actor=0.0001, lr_critic=0.001, tau=0.001, batch_size=64, memory_size=10000):
-        self.action_space = action_space
-        self.state_space = state_space
-        self.parameter_space = parameter_space
+        self.action_shape = action_shape
+        self.state_shape = state_shape
         self.gamma = gamma  # discount
         self.epsilon = epsilon  # exploration
         self.epsilon_min = epsilon_min
@@ -21,28 +20,21 @@ class DDPGAgent():
         self.lr_critic = lr_critic
         self.tau = tau
         self.random_process = OrnsteinUhlenbeckProcess(
-            size=self.action_space.shape[0], theta=0.15, mu=0, sigma=0.8)  # normally sigma=0.2
+            size=self.action_shape, theta=0.15, mu=0, sigma=0.8)  # normally sigma=0.2
         self.batch_size = batch_size
-        self.actor = ActorModel(
-            self.state_space, self.action_space, self.parameter_space)
-        self.actor_target = ActorModel(
-            self.state_space, self.action_space, self.parameter_space)
-        self.critic = CriticModel(
-            self.state_space, self.action_space, self.parameter_space)
-        self.critic_target = CriticModel(
-            self.state_space, self.action_space, self.parameter_space)
-        self.optim_actor = torch.optim.Adam(
-            self.actor.parameters(), lr=self.lr_actor)
-        self.optim_critic = torch.optim.Adam(
-            self.critic.parameters(), lr=self.lr_critic)  # , weight_decay=0.01)
+        self.actor = ActorModel(self.state_shape, self.action_shape)
+        self.actor_target = ActorModel(self.state_shape, self.action_shape)
+        self.critic = CriticModel(self.state_shape, self.action_shape)
+        self.critic_target = CriticModel(self.state_shape, self.action_shape)
+        self.optim_actor = torch.optim.Adam(self.actor.parameters(), lr=self.lr_actor)
+        self.optim_critic = torch.optim.Adam(self.critic.parameters(), lr=self.lr_critic)  # , weight_decay=0.01)
         self.memory = ReplayMemory(memory_size, Transition)
 
         hard_update(self.actor_target, self.actor)
         hard_update(self.critic_target, self.critic)
 
-    def act(self, state, params):
-        comp_state = torch.cat(
-            (torch.tensor(state).float(), torch.tensor(params).float()))
+    def act(self, state):
+        comp_state = torch.tensor(state).float()
         action = self.actor(comp_state).detach().numpy()
         #action += self.epsilon * self.random_process.sample()
         action += np.random.normal(scale=self.epsilon)
@@ -59,32 +51,25 @@ class DDPGAgent():
         transitions = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
         state_batch = torch.tensor(np.concatenate(batch.state)).float()
-        params_batch = torch.tensor(np.concatenate(batch.env_params)).float()
         action_batch = torch.tensor(np.concatenate(batch.action)).float()
-        reward_batch = torch.tensor(
-            np.concatenate(batch.reward)[:, None]).float()
-        next_state_batch = torch.tensor(
-            np.concatenate(batch.next_state)).float()
-        done_batch = torch.tensor(np.concatenate(batch.done)[
-            :, None].astype(np.float)).float()
+        reward_batch = torch.tensor(np.concatenate(batch.reward)[:, None]).float()
+        done_batch = torch.tensor(np.concatenate(batch.done)[:, None].astype(np.float)).float()
 
         with torch.no_grad():
-            comp_state = torch.cat((next_state_batch, params_batch), 1)
-            next_q_values = self.critic_target(
-                (comp_state, self.actor_target(comp_state)))
+            next_state_batch = torch.tensor(np.concatenate(batch.next_state)).float()
+            next_q_values = self.critic_target((next_state_batch, self.actor_target(next_state_batch)))
 
         q_target_batch = reward_batch + self.gamma * \
             (1-done_batch) * next_q_values
 
         self.critic.zero_grad()
-        comp_state = torch.cat((state_batch, params_batch), 1)
-        q_batch = self.critic((comp_state, action_batch))
+        q_batch = self.critic((state_batch, action_batch))
         value_loss = F.mse_loss(q_batch, q_target_batch)
         value_loss.backward()
         self.optim_critic.step()
 
         self.actor.zero_grad()
-        policy_loss = -self.critic((comp_state, self.actor(comp_state))).mean()
+        policy_loss = -self.critic((state_batch, self.actor(state_batch))).mean()
         policy_loss.backward()
         self.optim_actor.step()
 

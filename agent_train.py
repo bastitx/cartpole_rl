@@ -5,6 +5,8 @@ from model import ActorModel, CriticModel
 import torch
 import sys
 import argparse
+import numpy as np
+from torch.utils.tensorboard import SummaryWriter
 
 
 def main():
@@ -31,10 +33,17 @@ def main():
     args = parser.parse_args()
 
     env = InvertedPendulumEnv()
-
     env.seed(0)
-    agent = DDPGAgent(env.observation_space, env.action_space, env.parameter_space, ActorModel, CriticModel, args.gamma, args.epsilon, args.epsilon_min,
+
+    writer = SummaryWriter()
+
+    state_shape = np.array(env.observation_space.shape)
+    state_shape += np.array(env.params.shape)
+    agent = DDPGAgent(tuple(state_shape), env.action_space.shape, ActorModel, CriticModel, args.gamma, args.epsilon, args.epsilon_min,
                       args.epsilon_decay, args.lr_actor, args.lr_critic, args.tau, args.batch_size, args.memory_size)
+    #writer.add_graph(agent.actor)
+    #writer.add_graph(agent.critic)
+    
     if args.resume_episode > 0:
         try:
             agent.load_weights('models', args.resume_episode,
@@ -52,26 +61,36 @@ def main():
         if done:
             episode += 1
             episode_length = i - last_episode_start
-            print("{}/{}: episode: {}, avg.reward: {:.3f}, length: {}, epsilon: {:.3f}".format(
-                i, args.max_iterations, episode, episode_reward/episode_length,
-                episode_length, agent.epsilon))
+            #print("{}/{}: episode: {}, avg.reward: {:.3f}, length: {}, epsilon: {:.3f}".format(
+            #    i, args.max_iterations, episode, episode_reward/episode_length,
+            #    episode_length, agent.epsilon))
+            writer.add_scalar('EpisodeReward/total', episode_reward, episode)
+            writer.add_scalar('EpisodeReward/avg', episode_reward/episode_length, episode)
+            writer.add_scalar('EpisodeLength', episode_length, episode)
+            writer.add_scalar('Epsilon', agent.epsilon, episode)
+            writer.flush()
             if args.randomize:
                 env.close()
                 env.reinit()
             state = env.reset()
+            comp_state = np.concatenate((state, env.params))
             episode_reward = 0
             last_episode_start = i
         if args.mode is not 'train':
             env.render()
-        action = agent.act(state, env.params)
+        action = agent.act(comp_state)
         next_state, reward, done, _ = env.step(action)
         #print(state[1], action[0], reward)
         episode_reward += reward
-        agent.remember([state], [env.params], [action],
-                       [next_state], [reward], [done])
+        comp_next_state = np.concatenate((next_state, env.params))
+        agent.remember([comp_state], [action], [comp_next_state], [reward], [done])
+
         if args.mode is 'train' and i >= args.warmup:
             agent.update()
+
         state = next_state
+        comp_state = comp_next_state
+        
         if i - last_episode_start >= args.max_episode_length:
             done = True
 

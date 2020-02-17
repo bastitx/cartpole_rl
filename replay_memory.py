@@ -1,11 +1,9 @@
 from collections import namedtuple
 import random
 
-Transition = namedtuple('Transition',
-                        ('state', 'env_params', 'action', 'next_state', 'reward', 'done'))
+Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'done'))
 
-Transition_OSI = namedtuple('Transition_OSI',
-                            ('state_history', 'action_history', 'actual_mu'))
+Transition_OSI = namedtuple('Transition_OSI', ('state_history', 'action_history', 'actual_mu'))
 
 
 class ReplayMemory(object):

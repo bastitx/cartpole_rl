@@ -17,7 +17,7 @@ def main():
 	parser.add_argument('--mode', default='train', type=str)
 	parser.add_argument('--max_iterations', default=100000, type=int)
 	parser.add_argument('--warmup', default=128, type=int)
-	parser.add_argument('--history-length', default=10, type=int)
+	parser.add_argument('--history-length', default=5, type=int)
 	parser.add_argument('--episode_length', default=500, type=int)
 	parser.add_argument('--resume_episode', default=0, type=int)
 	parser.add_argument('--lr', default=0.0001, type=float)
