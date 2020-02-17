@@ -45,7 +45,7 @@ class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
         utils.EzPickle.__init__(self)
         self.parameter_space = spaces.Box(np.array(
-            [0.01, 0.01, 20, 0.1, 1, 0.1, 1]), np.array([3, 3, 500, 2, 100, 20, 20]))
+            [0.2, 0.2, 50, 0.3, 5, 0.1, 1]), np.array([1, 1, 500, 1.5, 25, 2, 20]))
         self.params = self.parameter_space.sample()
         xml_str = XML.format(
             slider_damping=self.params[0],
