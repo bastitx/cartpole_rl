@@ -15,14 +15,14 @@ def main():
 	parser = argparse.ArgumentParser()
 
 	parser.add_argument('--mode', default='train', type=str)
-	parser.add_argument('--max_iterations', default=100000, type=int)
+	parser.add_argument('--max-iterations', default=100000, type=int)
 	parser.add_argument('--warmup', default=128, type=int)
 	parser.add_argument('--history-length', default=5, type=int)
-	parser.add_argument('--episode_length', default=500, type=int)
-	parser.add_argument('--resume_episode', default=0, type=int)
+	parser.add_argument('--episode-length', default=500, type=int)
+	parser.add_argument('--resume-episode', default=0, type=int)
 	parser.add_argument('--lr', default=0.0001, type=float)
-	parser.add_argument('--batch_size', default=64, type=int)
-	parser.add_argument('--memory_size', default=10000, type=int)
+	parser.add_argument('--batch-size', default=64, type=int)
+	parser.add_argument('--memory-size', default=10000, type=int)
 
 	args = parser.parse_args()
 

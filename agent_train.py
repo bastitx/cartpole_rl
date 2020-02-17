@@ -15,24 +15,25 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--mode', default='train', type=str)
-    parser.add_argument('--max_iterations', default=100000, type=int)
+    parser.add_argument('--max-iterations', default=100000, type=int)
     parser.add_argument('--warmup', default=128, type=int)
-    parser.add_argument('--max_episode_length', default=500, type=int)
-    parser.add_argument('--resume_episode', default=0, type=int)
+    parser.add_argument('--max_episode-length', default=500, type=int)
+    parser.add_argument('--resume-episode', default=0, type=int)
     parser.add_argument('--epsilon', default=1.0, type=float)
-    parser.add_argument('--epsilon_decay', default=0.9999, type=float)
-    parser.add_argument('--epsilon_min', default=0.1, type=float)
+    parser.add_argument('--epsilon-decay', default=0.9999, type=float)
+    parser.add_argument('--epsilon-min', default=0.1, type=float)
     parser.add_argument('--gamma', default=0.99, type=float)
-    parser.add_argument('--lr_actor', default=0.0001, type=float)
-    parser.add_argument('--lr_critic', default=0.001, type=float)
+    parser.add_argument('--lr-actor', default=0.0001, type=float)
+    parser.add_argument('--lr-critic', default=0.001, type=float)
     parser.add_argument('--tau', default=0.001, type=float)
-    parser.add_argument('--batch_size', default=64, type=int)
-    parser.add_argument('--memory_size', default=10000, type=int)
+    parser.add_argument('--batch-size', default=64, type=int)
+    parser.add_argument('--memory-size', default=10000, type=int)
     parser.add_argument('--randomize', default=False, type=bool)
+    parser.add_argument('--swingup', default=True, type=bool)
 
     args = parser.parse_args()
 
-    env = InvertedPendulumEnv()
+    env = InvertedPendulumEnv(args.swingup)
     env.seed(0)
 
     writer = SummaryWriter()
@@ -90,7 +91,7 @@ def main():
 
         state = next_state
         comp_state = comp_next_state
-        
+
         if i - last_episode_start >= args.max_episode_length:
             done = True
 
