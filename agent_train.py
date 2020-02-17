@@ -49,8 +49,7 @@ def main():
     
     if args.resume_episode > 0:
         try:
-            agent.load_weights('models', args.resume_episode,
-                               args.mode is not 'train')
+            agent.load_weights('models', args.resume_episode, args.mode == 'train')
             print("loaded weights")
         except Exception:
             print("Couldn't load weights!")
@@ -67,10 +66,11 @@ def main():
             #print("{}/{}: episode: {}, avg.reward: {:.3f}, length: {}, epsilon: {:.3f}".format(
             #    i, args.max_iterations, episode, episode_reward/episode_length,
             #    episode_length, agent.epsilon))
-            writer.add_scalar('EpisodeReward/total', episode_reward, i)
-            writer.add_scalar('EpisodeReward/avg', episode_reward/episode_length, i)
-            writer.add_scalar('EpisodeLength', episode_length, i)
-            writer.add_scalar('Epsilon', agent.epsilon, i)
+            writer.add_scalar('EpisodeReward/total', episode_reward, episode)
+            writer.add_scalar('EpisodeReward/avg', episode_reward/episode_length, episode)
+            writer.add_scalar('EpisodeLength', episode_length, episode)
+            writer.add_scalar('Epsilon', agent.epsilon, episode)
+            writer.add_scalar('Memory', len(agent.memory.memory), episode)
             writer.flush()
             if args.randomize:
                 env.close()
@@ -79,8 +79,10 @@ def main():
             comp_state = np.concatenate((state, env.params))
             episode_reward = 0
             last_episode_start = i
+
         if args.mode is not 'train':
             env.render()
+        
         action = agent.act(comp_state)
         next_state, reward, done, _ = env.step(action)
         #print(state[1], action[0], reward)
@@ -100,7 +102,7 @@ def main():
     env.close()
     if args.mode is 'train':
         agent.save_model('models', episode)
-        print("Saved model")
+        print("Saved model: {}".format(episode))
 
 
 if __name__ == '__main__':
@@ -110,5 +112,5 @@ if __name__ == '__main__':
         env.close()
         if args.mode is 'train':
             agent.save_model('models', episode)
-            print("Saved model")
+            print("Saved model: {}".format(episode))
     sys.exit(0)
