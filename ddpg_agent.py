@@ -35,7 +35,7 @@ class DDPGAgent():
             self.actor.parameters(), lr=self.lr_actor)
         self.optim_critic = torch.optim.Adam(
             self.critic.parameters(), lr=self.lr_critic)  # , weight_decay=0.01)
-        self.memory = ReplayMemory(memory_size)
+        self.memory = ReplayMemory(memory_size, Transition)
 
         hard_update(self.actor_target, self.actor)
         hard_update(self.critic_target, self.critic)
@@ -91,11 +91,11 @@ class DDPGAgent():
         soft_update(self.actor_target, self.actor, self.tau)
         soft_update(self.critic_target, self.critic, self.tau)
 
-    def load_weights(self, output, epoch, memory=True):
-        if output is None:
+    def load_weights(self, folder, epoch, memory=True):
+        if folder is None:
             return
 
-        checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(output, epoch))
+        checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(folder, epoch))
         self.actor.load_state_dict(checkpoint['actor'])
         self.actor_target.load_state_dict(checkpoint['actor_target'])
         self.critic.load_state_dict(checkpoint['critic'])
@@ -104,8 +104,7 @@ class DDPGAgent():
         self.optim_critic.load_state_dict(checkpoint['optim_critic'])
         if memory:
             for m in checkpoint['memory']:
-                self.memory.push(m.state, m.action,
-                                 m.next_state, m.reward, m.done)
+                self.memory.push(m.state, m.action, m.next_state, m.reward, m.done)
 
     def save_model(self, output, epoch):
         torch.save({
