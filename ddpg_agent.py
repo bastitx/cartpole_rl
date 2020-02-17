@@ -20,7 +20,7 @@ class DDPGAgent():
         self.lr_critic = lr_critic
         self.tau = tau
         self.random_process = OrnsteinUhlenbeckProcess(
-            size=self.action_shape, theta=0.15, mu=0, sigma=0.8)  # normally sigma=0.2
+            size=self.action_shape, theta=0.15, mu=0, sigma=0.2)
         self.batch_size = batch_size
         self.actor = ActorModel(self.state_shape, self.action_shape)
         self.actor_target = ActorModel(self.state_shape, self.action_shape)
@@ -36,8 +36,8 @@ class DDPGAgent():
     def act(self, state):
         comp_state = torch.tensor(state).float()
         action = self.actor(comp_state).detach().numpy()
-        #action += self.epsilon * self.random_process.sample()
-        action += np.random.normal(scale=self.epsilon)
+        action += self.epsilon * self.random_process.sample()
+        #action += np.random.normal(scale=self.epsilon)
         action = np.clip(action, -1., 1.)
         self.epsilon = max(self.epsilon*self.epsilon_decay, self.epsilon_min)
         return action
