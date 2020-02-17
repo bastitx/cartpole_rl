@@ -6,44 +6,53 @@ from replay_memory import ReplayMemory, Transition
 from util import soft_update, hard_update
 from random_process import OrnsteinUhlenbeckProcess
 
+
 class DDPGAgent():
     def __init__(self, state_space, action_space, parameter_space, ActorModel, CriticModel, gamma=0.99, epsilon=1.0, epsilon_min=0.1,
-                    epsilon_decay=0.99995, lr_actor=0.0001, lr_critic=0.001, tau=0.001, batch_size=64, memory_size=10000):
+                 epsilon_decay=0.99995, lr_actor=0.0001, lr_critic=0.001, tau=0.001, batch_size=64, memory_size=10000):
         self.action_space = action_space
         self.state_space = state_space
         self.parameter_space = parameter_space
-        self.gamma = gamma #discount
-        self.epsilon = epsilon #exploration
+        self.gamma = gamma  # discount
+        self.epsilon = epsilon  # exploration
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.lr_actor = lr_actor
         self.lr_critic = lr_critic
         self.tau = tau
-        self.random_process = OrnsteinUhlenbeckProcess(size=self.action_space.shape[0], theta=0.15, mu=0, sigma=0.8) #normally sigma=0.2
+        self.random_process = OrnsteinUhlenbeckProcess(
+            size=self.action_space.shape[0], theta=0.15, mu=0, sigma=0.8)  # normally sigma=0.2
         self.batch_size = batch_size
-        self.actor = ActorModel(self.state_space, self.action_space, self.parameter_space)
-        self.actor_target = ActorModel(self.state_space, self.action_space, self.parameter_space)
-        self.critic = CriticModel(self.state_space, self.action_space, self.parameter_space)
-        self.critic_target = CriticModel(self.state_space, self.action_space, self.parameter_space)
-        self.optim_actor = torch.optim.Adam(self.actor.parameters(), lr=self.lr_actor)
-        self.optim_critic = torch.optim.Adam(self.critic.parameters(), lr=self.lr_critic)#, weight_decay=0.01)
+        self.actor = ActorModel(
+            self.state_space, self.action_space, self.parameter_space)
+        self.actor_target = ActorModel(
+            self.state_space, self.action_space, self.parameter_space)
+        self.critic = CriticModel(
+            self.state_space, self.action_space, self.parameter_space)
+        self.critic_target = CriticModel(
+            self.state_space, self.action_space, self.parameter_space)
+        self.optim_actor = torch.optim.Adam(
+            self.actor.parameters(), lr=self.lr_actor)
+        self.optim_critic = torch.optim.Adam(
+            self.critic.parameters(), lr=self.lr_critic)  # , weight_decay=0.01)
         self.memory = ReplayMemory(memory_size)
 
         hard_update(self.actor_target, self.actor)
         hard_update(self.critic_target, self.critic)
-    
+
     def act(self, state, params):
-        comp_state = torch.cat((torch.tensor(state).float(), torch.tensor(params).float()))
+        comp_state = torch.cat(
+            (torch.tensor(state).float(), torch.tensor(params).float()))
         action = self.actor(comp_state).detach().numpy()
         #action += self.epsilon * self.random_process.sample()
         action += np.random.normal(scale=self.epsilon)
         action = np.clip(action, -1., 1.)
         self.epsilon = max(self.epsilon*self.epsilon_decay, self.epsilon_min)
         return action
-    
+
     def remember(self, *args):
         self.memory.push(*args)
-    
+
     def update(self):
         if len(self.memory) < self.batch_size:
             return
@@ -52,18 +61,23 @@ class DDPGAgent():
         state_batch = torch.tensor(np.concatenate(batch.state)).float()
         params_batch = torch.tensor(np.concatenate(batch.env_params)).float()
         action_batch = torch.tensor(np.concatenate(batch.action)).float()
-        reward_batch = torch.tensor(np.concatenate(batch.reward)[:,None]).float()
-        next_state_batch = torch.tensor(np.concatenate(batch.next_state)).float()
-        done_batch = torch.tensor(np.concatenate(batch.done)[:,None].astype(np.float)).float()
+        reward_batch = torch.tensor(
+            np.concatenate(batch.reward)[:, None]).float()
+        next_state_batch = torch.tensor(
+            np.concatenate(batch.next_state)).float()
+        done_batch = torch.tensor(np.concatenate(batch.done)[
+            :, None].astype(np.float)).float()
 
         with torch.no_grad():
-            comp_state = torch.cat((next_state_batch, params_batch))
-            next_q_values = self.critic_target((comp_state, self.actor_target(comp_state)))
+            comp_state = torch.cat((next_state_batch, params_batch), 1)
+            next_q_values = self.critic_target(
+                (comp_state, self.actor_target(comp_state)))
 
-        q_target_batch = reward_batch + self.gamma * (1-done_batch) * next_q_values
-        
+        q_target_batch = reward_batch + self.gamma * \
+            (1-done_batch) * next_q_values
+
         self.critic.zero_grad()
-        comp_state = torch.cat((state_batch, params_batch))
+        comp_state = torch.cat((state_batch, params_batch), 1)
         q_batch = self.critic((comp_state, action_batch))
         value_loss = F.mse_loss(q_batch, q_target_batch)
         value_loss.backward()
@@ -76,9 +90,10 @@ class DDPGAgent():
 
         soft_update(self.actor_target, self.actor, self.tau)
         soft_update(self.critic_target, self.critic, self.tau)
-    
+
     def load_weights(self, output, epoch, memory=True):
-        if output is None: return
+        if output is None:
+            return
 
         checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(output, epoch))
         self.actor.load_state_dict(checkpoint['actor'])
@@ -87,23 +102,19 @@ class DDPGAgent():
         self.critic_target.load_state_dict(checkpoint['critic_target'])
         self.optim_actor.load_state_dict(checkpoint['optim_actor'])
         self.optim_critic.load_state_dict(checkpoint['optim_critic'])
-        if memory: 
+        if memory:
             for m in checkpoint['memory']:
-                self.memory.push(m.state, m.action, m.next_state, m.reward, m.done)
+                self.memory.push(m.state, m.action,
+                                 m.next_state, m.reward, m.done)
 
-    def save_model(self,output, epoch):
+    def save_model(self, output, epoch):
         torch.save({
-                'epoch': epoch,
-                'actor': self.actor.state_dict(),
-                'actor_target': self.actor_target.state_dict(),
-                'critic': self.critic.state_dict(),
-                'critic_target': self.critic_target.state_dict(),
-                'optim_actor': self.optim_actor.state_dict(),
-                'optim_critic': self.optim_critic.state_dict(),
-                'memory': self.memory.memory
-            }, '{}/checkpoint-{}.pkl'.format(output, epoch))
-
-
-        
-        
-
+            'epoch': epoch,
+            'actor': self.actor.state_dict(),
+            'actor_target': self.actor_target.state_dict(),
+            'critic': self.critic.state_dict(),
+            'critic_target': self.critic_target.state_dict(),
+            'optim_actor': self.optim_actor.state_dict(),
+            'optim_critic': self.optim_critic.state_dict(),
+            'memory': self.memory.memory
+        }, '{}/checkpoint-{}.pkl'.format(output, epoch))

@@ -30,20 +30,22 @@ XML = '''
 	</actuator>
 </mujoco>
 '''
-#add frictionloss to joints?
+# add frictionloss to joints?
 
-slider_damping=0.5 #0
-hinge_damping=0.5 #1
-motor_gear=200 #2
-motor_gain=1 #3
-cart_mass=10 #4
-pole_length=0.6 #5
-pole_mass=5 #6
+slider_damping = 0.5  # 0
+hinge_damping = 0.5  # 1
+motor_gear = 200  # 2
+motor_gain = 1  # 3
+cart_mass = 10  # 4
+pole_length = 0.6  # 5
+pole_mass = 5  # 6
+
 
 class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
         utils.EzPickle.__init__(self)
-        self.parameter_space = spaces.Box(np.array([0.01, 0.01, 20, 0.1, 1, 0.1, 1]), np.array([3, 3, 500, 2, 100, 20, 20])) 
+        self.parameter_space = spaces.Box(np.array(
+            [0.01, 0.01, 20, 0.1, 1, 0.1, 1]), np.array([3, 3, 500, 2, 100, 20, 20]))
         self.params = self.parameter_space.sample()
         xml_str = XML.format(
             slider_damping=self.params[0],
@@ -59,11 +61,11 @@ class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def step(self, a):
         self.do_simulation(a, self.frame_skip)
         ob = self._get_obs()
-        ob[1] += np.pi #starts at bottom
+        ob[1] += np.pi  # starts at bottom
         ob[1] = ob[1] % (2*np.pi)
         if ob[1] >= np.pi:
             ob[1] -= 2*np.pi
-        
+
         reward = np.cos(ob[1])-0.1*ob[0]**2-0.1*np.abs(ob[3])+1.6
 
         notdone = np.isfinite(ob).all() and (np.abs(ob[0]) <= 1.95)
@@ -73,10 +75,27 @@ class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         return ob, reward, done, {}
 
     def reset_model(self):
-        qpos = self.init_qpos + self.np_random.uniform(size=self.model.nq, low=-0.01, high=0.01)
-        qvel = self.init_qvel + self.np_random.uniform(size=self.model.nv, low=-0.01, high=0.01)
+        qpos = self.init_qpos + \
+            self.np_random.uniform(size=self.model.nq, low=-0.01, high=0.01)
+        qvel = self.init_qvel + \
+            self.np_random.uniform(size=self.model.nv, low=-0.01, high=0.01)
         self.set_state(qpos, qvel)
         return self._get_obs()
+
+    def reinit(self):
+        self.params = self.parameter_space.sample()
+        xml_str = XML.format(
+            slider_damping=self.params[0],
+            hinge_damping=self.params[1],
+            motor_gear=self.params[2],
+            motor_gain=self.params[3],
+            cart_mass=self.params[4],
+            pole_length=self.params[5],
+            pole_mass=self.params[6]
+        )
+        self.model = mujoco_py.load_model_from_xml(xml_str)
+        self.sim = mujoco_py.MjSim(self.model)
+        self.data = self.sim.data
 
     def _get_obs(self):
         return np.concatenate([self.sim.data.qpos, self.sim.data.qvel]).ravel()
