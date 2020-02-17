@@ -28,8 +28,10 @@ def main():
     parser.add_argument('--tau', default=0.001, type=float)
     parser.add_argument('--batch-size', default=64, type=int)
     parser.add_argument('--memory-size', default=10000, type=int)
-    parser.add_argument('--randomize', default=False, type=bool)
-    parser.add_argument('--swingup', default=True, type=bool)
+    parser.add_argument('--randomize', dest='randomize', action='store_true')
+    parser.set_defaults(randomize=False)
+    parser.add_argument('--no-swingup', dest='swingup', action='store_false')
+    parser.set_defaults(swingup=True)
 
     args = parser.parse_args()
 
@@ -65,10 +67,10 @@ def main():
             #print("{}/{}: episode: {}, avg.reward: {:.3f}, length: {}, epsilon: {:.3f}".format(
             #    i, args.max_iterations, episode, episode_reward/episode_length,
             #    episode_length, agent.epsilon))
-            writer.add_scalar('EpisodeReward/total', episode_reward, episode)
-            writer.add_scalar('EpisodeReward/avg', episode_reward/episode_length, episode)
-            writer.add_scalar('EpisodeLength', episode_length, episode)
-            writer.add_scalar('Epsilon', agent.epsilon, episode)
+            writer.add_scalar('EpisodeReward/total', episode_reward, i)
+            writer.add_scalar('EpisodeReward/avg', episode_reward/episode_length, i)
+            writer.add_scalar('EpisodeLength', episode_length, i)
+            writer.add_scalar('Epsilon', agent.epsilon, i)
             writer.flush()
             if args.randomize:
                 env.close()

@@ -75,7 +75,7 @@ class InvertedPendulumEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
         notdone = np.isfinite(ob).all() and (np.abs(ob[0]) <= 1.95)
         if not self.swingup:
-            notdone = notdone and np.abs(ob[1]) <= 1.0
+            notdone = notdone and np.cos(ob[1]) > 0.5
         done = not notdone
         if done:
             reward = 0
