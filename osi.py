@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from replay_memory import ReplayMemory, Transition_OSI
+from util.replay_memory import ReplayMemory, Transition_OSI
 import model
 
 

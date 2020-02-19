@@ -1,5 +1,5 @@
-import inverted_pendulum
-import random_agent
+import sim.inverted_pendulum as inverted_pendulum
+import agents.random_agent as random_agent
 import gym
 import numpy as np
 

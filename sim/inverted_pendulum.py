@@ -1,6 +1,6 @@
 import numpy as np
 from gym import utils, spaces
-import mujoco_env
+import sim.mujoco_env as mujoco_env
 import re
 import mujoco_py
 

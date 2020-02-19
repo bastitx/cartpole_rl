@@ -1,6 +1,6 @@
 import gym
-from ddpg_agent import DDPGAgent
-from inverted_pendulum import InvertedPendulumEnv
+from agents.ddpg_agent import DDPGAgent
+from sim.inverted_pendulum import InvertedPendulumEnv
 from model import ActorModel, CriticModel
 import torch
 import sys

@@ -1,11 +1,11 @@
 import gym
 from osi import OSI
-from inverted_pendulum import InvertedPendulumEnv
+from sim.inverted_pendulum import InvertedPendulumEnv
 from model import ActorModel, CriticModel
 import torch
 import sys
 import argparse
-from ddpg_agent import DDPGAgent
+from agents.ddpg_agent import DDPGAgent
 from collections import deque
 
 

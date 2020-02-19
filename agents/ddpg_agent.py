@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from replay_memory import ReplayMemory, Transition
-from util import soft_update, hard_update
-from random_process import OrnsteinUhlenbeckProcess
+from util.replay_memory import ReplayMemory, Transition
+from util.updates import soft_update, hard_update
+from util.random_process import OrnsteinUhlenbeckProcess
 
 
 class DDPGAgent():
