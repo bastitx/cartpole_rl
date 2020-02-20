@@ -3,6 +3,8 @@ import random
 
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward', 'done'))
 
+Transition_PPO = namedtuple('Transition_PPO', ('state', 'action', 'logprob', 'next_state', 'reward', 'done'))
+
 Transition_OSI = namedtuple('Transition_OSI', ('state_history', 'action_history', 'actual_mu'))
 
 
@@ -10,9 +12,8 @@ class ReplayMemory(object):
 
     def __init__(self, capacity, transition):
         self.capacity = capacity
-        self.memory = []
-        self.position = 0
         self.transition = transition
+        self.clear()
 
     def push(self, *args):
         """Saves a transition."""
@@ -23,6 +24,10 @@ class ReplayMemory(object):
 
     def sample(self, batch_size):
         return random.sample(self.memory, batch_size)
+    
+    def clear(self):
+        self.memory = []
+        self.position = 0
 
     def __len__(self):
         return len(self.memory)

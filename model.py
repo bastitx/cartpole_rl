@@ -52,6 +52,34 @@ class CriticModel(nn.Module):
         out = self.fc3(out)
         return out
 
+    
+class ActorCriticModel(nn.Module):
+    def __init__(self, state_shape, action_shape, action_var):
+        super().__init__()
+        self.action_shape = action_shape
+        self.state_shape = state_shape
+
+        self.actor = ActorModel(self.state_shape, self.action_shape)
+        self.critic = ActorModel(self.state_shape, self.action_shape) #just architecture is like actor
+        self.action_var = torch.full(action_shape, action_var)
+    
+    def forward(self, state):
+        a_mean = self.actor(state)
+        cov_mat = torch.diag(self.action_var)
+        dist = torch.distributions.MultivariateNormal(a_mean, cov_mat)
+        a = dist.sample()
+        a_logprob = dist.log_prob(a)
+        return a, a_logprob
+    
+    def evaluate(self, state, action):
+        a_mean = self.actor(state)
+        a_var = self.action_var.expand_as(a_mean)
+        cov_mat = torch.diag_embed(a_var)
+        dist = torch.distributions.MultivariateNormal(a_mean, cov_mat)
+        a_logprobs = dist.log_prob(action)
+        dist_entropy = dist.entropy()
+        state_value = self.critic(state)
+        return a_logprobs, state_value, dist_entropy
 
 class OsiModel(nn.Module):
     def __init__(self, input_shape, output_shape, init_w=0.003):
