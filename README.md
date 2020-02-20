@@ -1,1 +1,1 @@
-inspired by: https://github.com/ghliu/pytorch-ddpg
+Reinforcement Learning on a Real Cartpole
