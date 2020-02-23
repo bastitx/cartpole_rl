@@ -42,7 +42,7 @@ class PPOAgent():
         batch = Transition_PPO(*zip(*self.memory.memory))
         state_batch = torch.tensor(np.concatenate(batch.state)).float()
         action_batch = torch.tensor(np.concatenate(batch.action)).float()
-        logprob_batch = torch.tensor(np.concatenate(batch.logprob))
+        logprob_batch = torch.tensor(np.concatenate(batch.logprob)).float()
         reward_batch = np.concatenate(batch.reward)[:, None]
         done_batch = np.concatenate(batch.done)[:, None].astype(np.float)
 
@@ -53,7 +53,7 @@ class PPOAgent():
                 discounted_reward = 0
             discounted_reward = reward + self.gamma * discounted_reward
             rewards.insert(0, discounted_reward)
-        rewards = torch.tensor(rewards)
+        rewards = torch.tensor(rewards).float()
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
         for _ in range(self.epochs):
