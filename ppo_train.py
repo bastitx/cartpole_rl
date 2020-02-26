@@ -61,7 +61,7 @@ def main():
 			writer.add_scalar('EpisodeReward/total', episode_reward, episode)
 			writer.add_scalar('EpisodeReward/avg', episode_reward/episode_length, episode)
 			writer.add_scalar('EpisodeLength', episode_length, episode)
-			writer.add_scalar('Epsilon', agent.epsilon, episode)
+			writer.add_scalar('Variance', agent.policy.action_var, episode)
 			writer.add_scalar('Memory', len(agent.memory.memory), episode)
 			writer.flush()
 			if args.randomize:

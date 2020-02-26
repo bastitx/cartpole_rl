@@ -74,11 +74,12 @@ class PPOAgent():
             return
 
         checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(folder, epoch))
-        self.policy.load_state_dict(checkpoint['actor'])
+        self.policy.load_state_dict(checkpoint['policy'])
+        self.policy_old.load_state_dict(checkpoint['policy'])
         self.optim.load_state_dict(checkpoint['optim'])
         if memory:
             for m in checkpoint['memory']:
-                self.memory.push(m.state, m.action, m.next_state, m.reward, m.done)
+                self.memory.push(m.state, m.action, m.logprob, m.next_state, m.reward, m.done)
 
     def save_model(self, output, epoch):
         torch.save({

@@ -61,7 +61,7 @@ class ActorCriticModel(nn.Module):
 
         self.actor = ActorModel(self.state_shape, self.action_shape)
         self.critic = ActorModel(self.state_shape, self.action_shape) #just architecture is like actor
-        self.action_var = torch.full(action_shape, action_var)
+        self.action_var = torch.nn.Parameter(torch.full(action_shape, action_var))
     
     def forward(self, state):
         a_mean = self.actor(state)
