@@ -74,12 +74,8 @@ class PPOAgent():
             return
 
         checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(folder, epoch))
-        self.actor.load_state_dict(checkpoint['actor'])
-        self.actor_target.load_state_dict(checkpoint['actor_target'])
-        self.critic.load_state_dict(checkpoint['critic'])
-        self.critic_target.load_state_dict(checkpoint['critic_target'])
-        self.optim_actor.load_state_dict(checkpoint['optim_actor'])
-        self.optim_critic.load_state_dict(checkpoint['optim_critic'])
+        self.policy.load_state_dict(checkpoint['actor'])
+        self.optim.load_state_dict(checkpoint['optim'])
         if memory:
             for m in checkpoint['memory']:
                 self.memory.push(m.state, m.action, m.next_state, m.reward, m.done)
@@ -87,11 +83,7 @@ class PPOAgent():
     def save_model(self, output, epoch):
         torch.save({
             'epoch': epoch,
-            'actor': self.actor.state_dict(),
-            'actor_target': self.actor_target.state_dict(),
-            'critic': self.critic.state_dict(),
-            'critic_target': self.critic_target.state_dict(),
-            'optim_actor': self.optim_actor.state_dict(),
-            'optim_critic': self.optim_critic.state_dict(),
+            'policy': self.policy.state_dict(),
+            'optim': self.optim.state_dict(),
             'memory': self.memory.memory
         }, '{}/checkpoint-{}.pkl'.format(output, epoch))

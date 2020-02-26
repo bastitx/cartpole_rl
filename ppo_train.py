@@ -72,7 +72,7 @@ def main():
 			episode_reward = 0
 			last_episode_start = i
 
-		if args.mode is not 'train':
+		if args.mode != 'train':
 			env.render()
         
 		action, logprob = agent.act(comp_state)
@@ -81,7 +81,7 @@ def main():
 		comp_next_state = np.concatenate((next_state, env.params))
 		agent.remember([comp_state], [action], [logprob], [comp_next_state], [reward], [done])
 
-		if args.mode is 'train' and i % args.batch_size == 0:
+		if args.mode == 'train' and i % args.batch_size == 0:
 			agent.update()
 			agent.memory.clear()
 
@@ -92,7 +92,7 @@ def main():
 			done = True
 
 	env.close()
-	if args.mode is 'train':
+	if args.mode == 'train':
 		agent.save_model('models', episode)
 		print("Saved model: {}".format(episode))
 
@@ -102,7 +102,7 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         env.close()
-        if args.mode is 'train':
+        if args.mode == 'train':
             agent.save_model('models', episode)
             print("Saved model: {}".format(episode))
     sys.exit(0)
