@@ -15,7 +15,7 @@ class PPOAgent():
         self.epsilon = 0.2  # clip
         self.lr = lr
         self.batch_size = batch_size
-        self.policy = ActorCritic(state_shape, action_shape, 0.25)
+        self.policy = ActorCritic(state_shape, action_shape, 0.1)
         self.optim = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
         self.policy_old = ActorCritic(state_shape, action_shape, 0.25)
         self.policy_old.load_state_dict(self.policy.state_dict())
