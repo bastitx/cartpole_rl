@@ -26,11 +26,9 @@ class PPOAgent():
     def act(self, state):
         comp_state = torch.tensor(state).float()
         action, logprob = self.policy_old(comp_state)
-        #action += self.epsilon * self.random_process.sample()
-        #action += np.random.normal(scale=self.epsilon)
-        #action = np.clip(action, -1., 1.)
-        #self.epsilon = max(self.epsilon*self.epsilon_decay, self.epsilon_min)
-        return action.detach().numpy(), logprob.detach().numpy()
+        action = action.detach().numpy()
+        action = np.clip(action, -1., 1.)
+        return action, logprob.detach().numpy()
 
     def remember(self, *args):
         self.memory.push(*args)

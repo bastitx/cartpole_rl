@@ -1,6 +1,6 @@
 import gym
 from agents.ppo_agent import PPOAgent
-from sim.inverted_pendulum import InvertedPendulumEnv
+from sim.cartpole import CartPoleEnv
 from model import ActorCriticModel
 import torch
 import sys
@@ -25,13 +25,15 @@ def main():
 	parser.add_argument('--epochs', default=80, type=int)
 	parser.add_argument('--randomize', dest='randomize', action='store_true')
 	parser.set_defaults(randomize=False)
+	parser.add_argument('--render', dest='render', action='store_true')
+	parser.set_defaults(render=False)
 	parser.add_argument('--no-swingup', dest='swingup', action='store_false')
 	parser.set_defaults(swingup=True)
 
 	args = parser.parse_args()
 
-	env = InvertedPendulumEnv(args.swingup)
-	env.seed(0)
+	env = CartPoleEnv(args.swingup, args.randomize)
+	env.params = np.array([])
 
 	writer = SummaryWriter()
 
@@ -66,15 +68,15 @@ def main():
 			writer.flush()
 			if args.randomize:
 				env.close()
-				env.reinit()
+				#env.reinit()
 			state = env.reset()
 			comp_state = np.concatenate((state, env.params))
 			episode_reward = 0
 			last_episode_start = i
 
-		if args.mode != 'train':
+		if args.render:
 			env.render()
-        
+
 		action, logprob = agent.act(comp_state)
 		next_state, reward, done, _ = env.step(action)
 		episode_reward += reward
