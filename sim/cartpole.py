@@ -60,18 +60,14 @@ class CartPoleEnv(gym.Env):
         self.mu_cart = 0.5 # friction cart
         self.mu_pole = 0.03 # friction pole
 
-        self.tau = 0.02  # seconds between state updates
         self.nc_sign = 1
-
         self.i = 0 # current
+
         self.Psi = 0.01 # flux
         self.R = 1 # resistance
         self.L = 0.5 # inductance
-        self.J_rotor = 0.017 # moment of inertia of motor
         self.radius = 0.02
-        self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
-        self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
-        self.J = self.J_rotor + self.J_load
+        self.tau = 0.02  # seconds between state updates
 
         self.swingup = swingup
         self.randomize = randomize
@@ -111,7 +107,7 @@ class CartPoleEnv(gym.Env):
         sintheta = math.sin(theta)
 
         def get_thetaacc():
-            bracket = (- self.Psi * self.i / self.radius - self.polemass_length * theta_dot**2 * \
+            bracket = (-self.Psi * self.i / self.radius - self.polemass_length * theta_dot**2 * \
                 (sintheta + self.mu_cart * self.nc_sign * costheta)) / self.total_mass + \
                 self.mu_cart * self.gravity * self.nc_sign
             return (self.gravity * sintheta + costheta * bracket - \
@@ -119,7 +115,7 @@ class CartPoleEnv(gym.Env):
                 (self.length * (4.0/3.0 - self.masspole * costheta / self.total_mass * \
                 (costheta - self.mu_cart * self.nc_sign)))
 
-        i_dot = (- self.Psi * x_dot / self.radius - self.R * self.i + u) / self.L 
+        i_dot = (-self.Psi * x_dot / self.radius - self.R * self.i + u) / self.L 
         
         thetaacc = get_thetaacc()
         nc = self.total_mass * self.gravity - self.polemass_length * \
@@ -130,7 +126,7 @@ class CartPoleEnv(gym.Env):
             thetaacc = get_thetaacc()
 
         xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
-            self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J)
+            self.mu_cart * nc * self.nc_sign) / self.total_mass
 
         x  += self.tau * x_dot
         x_dot += self.tau * xacc
