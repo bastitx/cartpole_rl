@@ -53,12 +53,12 @@ class CartPoleEnv(gym.Env):
     def __init__(self, swingup=False, randomize=False):
         self.gravity = 9.81
         self.masscart = 1.0 # kg
-        self.masspole = 0.3 # kg
+        self.masspole = 0.1 # kg
         self.total_mass = (self.masspole + self.masscart)
-        self.length = 0.15 # actually half the pole's length in meters
+        self.length = 0.5 # actually half the pole's length in meters
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.2 # friction cart
-        self.mu_pole = 0.1 # friction pole
+        self.mu_cart = 0.5 # friction cart
+        self.mu_pole = 0.03 # friction pole
 
         self.tau = 0.02  # seconds between state updates
         self.nc_sign = 1
@@ -80,7 +80,7 @@ class CartPoleEnv(gym.Env):
 
         # Angle at which to fail the episode if swingup != False
         self.theta_threshold_radians = 0.21
-        self.x_threshold = 1 # length of tracks in meters
+        self.x_threshold = 2.4 # length of tracks in meters
 
         high = np.array([self.x_threshold,
                          np.finfo(np.float32).max,
@@ -105,13 +105,13 @@ class CartPoleEnv(gym.Env):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
         x, x_dot, theta, theta_dot = state
-        u = action[0]*40
+        u = action[0]*80
 
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
 
         def get_thetaacc():
-            bracket = (-u - self.polemass_length * theta_dot * theta_dot * \
+            bracket = (- self.Psi * self.i / self.radius - self.polemass_length * theta_dot**2 * \
                 (sintheta + self.mu_cart * self.nc_sign * costheta)) / self.total_mass + \
                 self.mu_cart * self.gravity * self.nc_sign
             return (self.gravity * sintheta + costheta * bracket - \
@@ -129,7 +129,7 @@ class CartPoleEnv(gym.Env):
             self.nc_sign = nc_sign
             thetaacc = get_thetaacc()
 
-        xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot * theta_dot * sintheta - thetaacc * costheta) - \
+        xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
             self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J)
 
         x  += self.tau * x_dot
