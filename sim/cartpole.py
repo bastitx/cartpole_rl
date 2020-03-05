@@ -11,7 +11,6 @@ import gym
 from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
-from motor import Motor
 
 class CartPoleEnv(gym.Env):
     """
@@ -58,13 +57,21 @@ class CartPoleEnv(gym.Env):
         self.total_mass = (self.masspole + self.masscart)
         self.length = 0.5 # actually half the pole's length in meters
         self.polemass_length = (self.masspole * self.length)
-        self.tau = 0.02  # seconds between state updates
-        self.kinematics_integrator = 'euler'
-        self.nc_sign = 1
-        self.mu_cart = 1 # friction cart
-        self.mu_pole = 1 # friction pole
+        self.mu_cart = 0 # friction cart
+        self.mu_pole = 0 # friction pole
 
-        self.motor = Motor(self.total_mass)
+        self.tau = 0.02  # seconds between state updates
+        self.nc_sign = 1
+
+        self.i = 0 # current
+        self.Psi = 0.01 # flux
+        self.R = 1 # resistance
+        self.L = 0.5 # inductance
+        self.J_rotor = 0.017 # moment of inertia of motor
+        self.radius = 0.02
+        self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
+        self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
+        self.J = self.J_rotor + self.J_load
 
         self.swingup = swingup
         self.randomize = randomize
@@ -98,13 +105,13 @@ class CartPoleEnv(gym.Env):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
         x, x_dot, theta, theta_dot = state
-        force = action[0]
+        u = action[0]*20
 
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
 
         def get_thetaacc():
-            bracket = (-force - self.polemass_length * theta_dot * theta_dot * \
+            bracket = (-u - self.polemass_length * theta_dot * theta_dot * \
                 (sintheta + self.mu_cart * self.nc_sign * costheta)) / self.total_mass + \
                 self.mu_cart * self.gravity * self.nc_sign
             return (self.gravity * sintheta + costheta * bracket - \
@@ -112,6 +119,8 @@ class CartPoleEnv(gym.Env):
                 (self.length * (4.0/3.0 - self.masspole * costheta / self.total_mass * \
                 (costheta - self.mu_cart * self.nc_sign)))
 
+        i_dot = (- self.Psi * x_dot / self.radius - self.R * self.i + u) / self.L 
+        
         thetaacc = get_thetaacc()
         nc = self.total_mass * self.gravity - self.polemass_length * \
             (thetaacc * sintheta + theta_dot * theta_dot * costheta)
@@ -120,19 +129,14 @@ class CartPoleEnv(gym.Env):
             self.nc_sign = nc_sign
             thetaacc = get_thetaacc()
 
-        xacc  = (force + self.polemass_length * (theta_dot * theta_dot * sintheta - thetaacc * costheta) - \
-            self.mu_cart * nc * nc_sign) / self.total_mass
+        xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot * theta_dot * sintheta - thetaacc * costheta) - \
+            self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J)
 
-        if self.kinematics_integrator == 'euler':
-            x  = x + self.tau * x_dot
-            x_dot = x_dot + self.tau * xacc
-            theta = theta + self.tau * theta_dot
-            theta_dot = theta_dot + self.tau * thetaacc
-        else: # semi-implicit euler
-            x_dot = x_dot + self.tau * xacc
-            x  = x + self.tau * x_dot
-            theta_dot = theta_dot + self.tau * thetaacc
-            theta = theta + self.tau * theta_dot
+        x  += self.tau * x_dot
+        x_dot += self.tau * xacc
+        theta += self.tau * theta_dot
+        theta_dot += self.tau * thetaacc
+        self.i += self.tau * i_dot
 
         theta = theta % (2*np.pi)
         if theta >= np.pi:
@@ -167,6 +171,7 @@ class CartPoleEnv(gym.Env):
             self.state[2] = (self.state[2] + np.pi) % (2*np.pi)
             if self.state[2] >= np.pi:
                 self.state[2] -= 2*np.pi
+        self.i = 0
         self.steps_beyond_done = None
         return np.array(self.state)
 
