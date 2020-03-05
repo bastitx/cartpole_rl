@@ -53,12 +53,12 @@ class CartPoleEnv(gym.Env):
     def __init__(self, swingup=False, randomize=False):
         self.gravity = 9.81
         self.masscart = 1.0 # kg
-        self.masspole = 0.1 # kg
+        self.masspole = 0.3 # kg
         self.total_mass = (self.masspole + self.masscart)
-        self.length = 0.5 # actually half the pole's length in meters
+        self.length = 0.15 # actually half the pole's length in meters
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0 # friction cart
-        self.mu_pole = 0 # friction pole
+        self.mu_cart = 0.2 # friction cart
+        self.mu_pole = 0.1 # friction pole
 
         self.tau = 0.02  # seconds between state updates
         self.nc_sign = 1
@@ -80,7 +80,7 @@ class CartPoleEnv(gym.Env):
 
         # Angle at which to fail the episode if swingup != False
         self.theta_threshold_radians = 0.21
-        self.x_threshold = 2.4 # length of tracks in meters
+        self.x_threshold = 1 # length of tracks in meters
 
         high = np.array([self.x_threshold,
                          np.finfo(np.float32).max,
@@ -105,7 +105,7 @@ class CartPoleEnv(gym.Env):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
         x, x_dot, theta, theta_dot = state
-        u = action[0]*20
+        u = action[0]*40
 
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
@@ -232,3 +232,20 @@ class CartPoleEnv(gym.Env):
         if self.viewer:
             self.viewer.close()
             self.viewer = None
+
+
+if __name__ == '__main__':
+    import keyboard
+    env = CartPoleEnv(swingup=True, randomize=False)
+    state = env.reset()
+    done = False
+    while not done:
+        env.render()
+        if keyboard.is_pressed('left'):
+            action = np.array([-.5])
+        elif keyboard.is_pressed('right'):
+            action = np.array([.5])
+        else:
+            action = np.array([0])
+        state, _, done, _ = env.step(action)
+    env.close()
