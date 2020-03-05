@@ -50,7 +50,7 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=False, randomize=False):
+    def __init__(self, swingup=True, randomize=False):
         self.gravity = 9.81
         self.masscart = 1.0 # kg
         self.masspole = 0.1 # kg
@@ -67,6 +67,10 @@ class CartPoleEnv(gym.Env):
         self.R = 1 # resistance
         self.L = 0.5 # inductance
         self.radius = 0.02
+        self.J_rotor = 0.017 # moment of inertia of motor
+        self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
+        self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
+        self.J = self.J_rotor  # should this be J_rotor + J_load or just J_rotor?
         self.tau = 0.02  # seconds between state updates
 
         self.swingup = swingup
@@ -126,7 +130,7 @@ class CartPoleEnv(gym.Env):
             thetaacc = get_thetaacc()
 
         xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
-            self.mu_cart * nc * self.nc_sign) / self.total_mass
+            self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J)
 
         x  += self.tau * x_dot
         x_dot += self.tau * xacc
