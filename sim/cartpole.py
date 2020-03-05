@@ -11,6 +11,7 @@ import gym
 from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
+from motor import Motor
 
 class CartPoleEnv(gym.Env):
     """
@@ -60,10 +61,15 @@ class CartPoleEnv(gym.Env):
         self.tau = 0.02  # seconds between state updates
         self.kinematics_integrator = 'euler'
         self.nc_sign = 1
-        self.mu_cart = 0 # friction cart
-        self.mu_pole = 0 # friction pole
+        self.mu_cart = 1 # friction cart
+        self.mu_pole = 1 # friction pole
+
+        self.motor = Motor(self.total_mass)
+
         self.swingup = swingup
         self.randomize = randomize
+
+        #add noise?
 
         # Angle at which to fail the episode if swingup != False
         self.theta_threshold_radians = 0.21
@@ -98,10 +104,10 @@ class CartPoleEnv(gym.Env):
         sintheta = math.sin(theta)
 
         def get_thetaacc():
-            temp = (force + self.polemass_length * theta_dot * theta_dot * \
+            bracket = (-force - self.polemass_length * theta_dot * theta_dot * \
                 (sintheta + self.mu_cart * self.nc_sign * costheta)) / self.total_mass + \
                 self.mu_cart * self.gravity * self.nc_sign
-            return (self.gravity * sintheta - costheta * temp - \
+            return (self.gravity * sintheta + costheta * bracket - \
                 self.mu_pole * theta_dot / self.polemass_length) / \
                 (self.length * (4.0/3.0 - self.masspole * costheta / self.total_mass * \
                 (costheta - self.mu_cart * self.nc_sign)))
