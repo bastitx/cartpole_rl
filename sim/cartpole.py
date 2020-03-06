@@ -63,9 +63,9 @@ class CartPoleEnv(gym.Env):
         self.nc_sign = 1
         self.i = 0 # current
 
-        self.Psi = 0.2 # flux
-        self.R = 5 # resistance
-        self.L = 0.4 # inductance
+        self.Psi = 0.7 # flux
+        self.R = 2 # resistance
+        self.L = 0.1 # inductance
         self.radius = 0.02
         self.J_rotor = 0.017 # moment of inertia of motor
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
@@ -132,6 +132,7 @@ class CartPoleEnv(gym.Env):
 
         self.xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
             self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J/self.radius**2)
+        thetaacc = get_thetaacc()
 
         x  += self.tau * x_dot
         x_dot += self.tau * self.xacc
@@ -153,7 +154,7 @@ class CartPoleEnv(gym.Env):
         done = bool(done)
 
         if self.motortest:
-            return self.xacc
+            return x_dot
 
         if not done:
             reward = 1.0
@@ -262,9 +263,9 @@ if __name__ == '__main__':
         while not done:
             env.render()
             if keyboard.is_pressed('left'):
-                action = np.array([-.5])
+                action = np.array([-.8])
             elif keyboard.is_pressed('right'):
-                action = np.array([.5])
+                action = np.array([.8])
             else:
                 action = np.array([0])
             state, _, done, _ = env.step(action)
