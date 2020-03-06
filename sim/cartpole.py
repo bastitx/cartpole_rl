@@ -50,22 +50,22 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=True, randomize=False):
+    def __init__(self, swingup=True, randomize=False, motortest=False):
         self.gravity = 9.81
         self.masscart = 1.0 # kg
         self.masspole = 0.1 # kg
         self.total_mass = (self.masspole + self.masscart)
         self.length = 0.5 # actually half the pole's length in meters
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.5 # friction cart
+        self.mu_cart = 0.8 # friction cart
         self.mu_pole = 0.03 # friction pole
 
         self.nc_sign = 1
         self.i = 0 # current
 
-        self.Psi = 0.01 # flux
-        self.R = 1 # resistance
-        self.L = 0.5 # inductance
+        self.Psi = 0.2 # flux
+        self.R = 5 # resistance
+        self.L = 0.4 # inductance
         self.radius = 0.02
         self.J_rotor = 0.017 # moment of inertia of motor
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
@@ -75,6 +75,7 @@ class CartPoleEnv(gym.Env):
 
         self.swingup = swingup
         self.randomize = randomize
+        self.motortest = motortest
 
         #add noise?
 
@@ -105,15 +106,15 @@ class CartPoleEnv(gym.Env):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
         x, x_dot, theta, theta_dot = state
-        u = action[0]*80
+        u = action[0]*20
 
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
 
         def get_thetaacc():
-            bracket = (-self.Psi * self.i / self.radius - self.polemass_length * theta_dot**2 * \
-                (sintheta + self.mu_cart * self.nc_sign * costheta)) / self.total_mass + \
-                self.mu_cart * self.gravity * self.nc_sign
+            bracket = (-self.Psi * self.i / self.radius + self.J * self.xacc / self.radius**2 - \
+                self.polemass_length * theta_dot**2 * (sintheta + self.mu_cart * self.nc_sign * costheta)) / \
+                self.total_mass + self.mu_cart * self.gravity * self.nc_sign
             return (self.gravity * sintheta + costheta * bracket - \
                 self.mu_pole * theta_dot / self.polemass_length) / \
                 (self.length * (4.0/3.0 - self.masspole * costheta / self.total_mass * \
@@ -129,11 +130,11 @@ class CartPoleEnv(gym.Env):
             self.nc_sign = nc_sign
             thetaacc = get_thetaacc()
 
-        xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
-            self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J)
+        self.xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
+            self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J/self.radius**2)
 
         x  += self.tau * x_dot
-        x_dot += self.tau * xacc
+        x_dot += self.tau * self.xacc
         theta += self.tau * theta_dot
         theta_dot += self.tau * thetaacc
         self.i += self.tau * i_dot
@@ -150,6 +151,9 @@ class CartPoleEnv(gym.Env):
             done = done or theta < -self.theta_threshold_radians \
                     or theta > self.theta_threshold_radians
         done = bool(done)
+
+        if self.motortest:
+            return self.xacc
 
         if not done:
             reward = 1.0
@@ -172,6 +176,7 @@ class CartPoleEnv(gym.Env):
             if self.state[2] >= np.pi:
                 self.state[2] -= 2*np.pi
         self.i = 0
+        self.xacc = 0
         self.steps_beyond_done = None
         return np.array(self.state)
 
@@ -235,17 +240,32 @@ class CartPoleEnv(gym.Env):
 
 
 if __name__ == '__main__':
-    import keyboard
-    env = CartPoleEnv(swingup=True, randomize=False)
-    state = env.reset()
-    done = False
-    while not done:
-        env.render()
-        if keyboard.is_pressed('left'):
-            action = np.array([-.5])
-        elif keyboard.is_pressed('right'):
-            action = np.array([.5])
-        else:
-            action = np.array([0])
-        state, _, done, _ = env.step(action)
-    env.close()
+    motorTest = False
+    if motorTest:
+        import matplotlib.pyplot as plt
+        env = CartPoleEnv(swingup=True, randomize=False, motortest=True)
+        n = 100
+        us = [0.5, 0.75, 1] # * 20V
+        for u in us:
+            env.reset()
+            l = np.zeros(n)
+            for i in range(n):
+                l[i] = env.step([u]) / (2 * np.pi) * 60
+            plt.plot(np.arange(n)*env.tau, l)
+        #plt.plot(np.arange(n)*m.tau, 10)
+        plt.show()
+    else:
+        import keyboard
+        env = CartPoleEnv(swingup=True, randomize=False)
+        state = env.reset()
+        done = False
+        while not done:
+            env.render()
+            if keyboard.is_pressed('left'):
+                action = np.array([-.5])
+            elif keyboard.is_pressed('right'):
+                action = np.array([.5])
+            else:
+                action = np.array([0])
+            state, _, done, _ = env.step(action)
+        env.close()
