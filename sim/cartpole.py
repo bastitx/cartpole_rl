@@ -70,7 +70,7 @@ class CartPoleEnv(gym.Env):
         self.J_rotor = 0.017 # moment of inertia of motor
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
         self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
-        self.J = self.J_rotor  # should this be J_rotor + J_load or just J_rotor?
+        self.J = self.J_rotor # should this be J_rotor + J_load or just J_rotor?
         self.tau = 0.02  # seconds between state updates
 
         self.swingup = swingup
@@ -112,16 +112,23 @@ class CartPoleEnv(gym.Env):
         sintheta = math.sin(theta)
 
         def get_thetaacc():
-            bracket = (-self.Psi * self.i / self.radius + self.J * self.xacc / self.radius**2 - \
-                self.polemass_length * theta_dot**2 * (sintheta + self.mu_cart * self.nc_sign * costheta)) / \
-                self.total_mass + self.mu_cart * self.gravity * self.nc_sign
-            return (self.gravity * sintheta + costheta * bracket - \
-                self.mu_pole * theta_dot / self.polemass_length) / \
-                (self.length * (4.0/3.0 - self.masspole * costheta / self.total_mass * \
-                (costheta - self.mu_cart * self.nc_sign)))
-
-        i_dot = (-self.Psi * x_dot / self.radius - self.R * self.i + u) / self.L 
+            Tm = self.Psi * self.i
+            a = Tm / self.radius + self.polemass_length * theta_dot**2 * sintheta
+            b = self.mu_cart * self.nc_sign * (self.polemass_length * theta_dot**2 * costheta \
+                - self.total_mass * self.gravity)
+            c = self.gravity * sintheta - self.mu_pole * theta_dot / self.polemass_length \
+                + costheta * (- self.polemass_length * theta_dot**2 * (sintheta + \
+                self.mu_cart * self.nc_sign * costheta) / self.total_mass + \
+                self.mu_cart * self.gravity * self.nc_sign)
+            ab = (a + b) / (self.J / self.radius**2 + self.total_mass)
+            return (c - Tm * costheta / (self.radius * self.total_mass) + \
+                ab * self.J * costheta / (self.radius**2 * self.total_mass)) / (self.length * \
+                (4/3 - self.masspole * costheta / self.total_mass * (costheta - self.mu_cart * self.nc_sign \
+                + self.J * (self.mu_cart * self.nc_sign * sintheta - costheta) / \
+                (self.J + self.radius**2 * self.total_mass))))
         
+        i_dot = (-self.Psi * x_dot / self.radius - self.R * self.i + u) / self.L
+
         thetaacc = get_thetaacc()
         nc = self.total_mass * self.gravity - self.polemass_length * \
             (thetaacc * sintheta + theta_dot * theta_dot * costheta)
@@ -131,8 +138,7 @@ class CartPoleEnv(gym.Env):
             thetaacc = get_thetaacc()
 
         self.xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
-            self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J/self.radius**2)
-        thetaacc = get_thetaacc()
+            self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J / self.radius**2)
 
         x  += self.tau * x_dot
         x_dot += self.tau * self.xacc
@@ -241,7 +247,7 @@ class CartPoleEnv(gym.Env):
 
 
 if __name__ == '__main__':
-    motorTest = False
+    motorTest = True
     if motorTest:
         import matplotlib.pyplot as plt
         env = CartPoleEnv(swingup=True, randomize=False, motortest=True)
