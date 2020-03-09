@@ -63,9 +63,9 @@ class CartPoleEnv(gym.Env):
         self.nc_sign = 1
         self.i = 0 # current
 
-        self.Psi = 0.7 # flux
-        self.R = 2 # resistance
-        self.L = 0.1 # inductance
+        self.Psi = 0.08 # flux
+        self.R = 1 # resistance
+        self.L = 0.05 # inductance
         self.radius = 0.02
         self.J_rotor = 0.017 # moment of inertia of motor
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
@@ -106,7 +106,7 @@ class CartPoleEnv(gym.Env):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
         x, x_dot, theta, theta_dot = state
-        u = action[0]*20
+        u = action[0]*100
 
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
@@ -247,8 +247,8 @@ class CartPoleEnv(gym.Env):
 
 
 if __name__ == '__main__':
-    motorTest = True
-    if motorTest:
+    import sys
+    if len(sys.argv) > 1 and 'motor' in sys.argv:
         import matplotlib.pyplot as plt
         env = CartPoleEnv(swingup=True, randomize=False, motortest=True)
         n = 100
@@ -257,7 +257,7 @@ if __name__ == '__main__':
             env.reset()
             l = np.zeros(n)
             for i in range(n):
-                l[i] = env.step([u]) / (2 * np.pi) * 60
+                l[i] = env.step([u])
             plt.plot(np.arange(n)*env.tau, l)
         #plt.plot(np.arange(n)*m.tau, 10)
         plt.show()
@@ -269,9 +269,9 @@ if __name__ == '__main__':
         while not done:
             env.render()
             if keyboard.is_pressed('left'):
-                action = np.array([-.8])
+                action = np.array([-.99])
             elif keyboard.is_pressed('right'):
-                action = np.array([.8])
+                action = np.array([.99])
             else:
                 action = np.array([0])
             state, _, done, _ = env.step(action)
