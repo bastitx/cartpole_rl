@@ -151,7 +151,9 @@ class CartPoleEnv(gym.Env):
             theta -= 2*np.pi
         self.state = (x,x_dot,theta,theta_dot)
 
-
+        if self.motortest:
+            return x_dot
+            
         done =  x < -self.x_threshold \
                 or x > self.x_threshold
         if not self.swingup:
@@ -159,15 +161,12 @@ class CartPoleEnv(gym.Env):
                     or theta > self.theta_threshold_radians
         done = bool(done)
 
-        if self.motortest:
-            return x_dot
-
         if not done:
-            reward = 1.0
+            reward = np.cos(theta)-0.1*x**2-0.1*np.abs(x_dot)+1.6
         elif self.steps_beyond_done is None:
             # Pole just fell!
             self.steps_beyond_done = 0
-            reward = 1.0
+            reward = 0.0
         else:
             if self.steps_beyond_done == 0:
                 logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True' -- any further steps are undefined behavior.")
