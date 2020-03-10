@@ -1,6 +1,6 @@
 import gym
 from agents.ddpg_agent import DDPGAgent
-from sim.inverted_pendulum import InvertedPendulumEnv
+from sim.cartpole import CartPoleEnv
 from model import ActorModel, CriticModel
 import torch
 import sys
@@ -35,8 +35,9 @@ def main():
 
     args = parser.parse_args()
 
-    env = InvertedPendulumEnv(args.swingup)
+    env = CartPoleEnv(args.swingup)
     env.seed(0)
+    env.params = np.array([])
 
     writer = SummaryWriter()
 
@@ -80,7 +81,7 @@ def main():
             episode_reward = 0
             last_episode_start = i
 
-        if args.mode is not 'train':
+        if args.mode != 'train':
             env.render()
         
         action = agent.act(comp_state)
@@ -90,7 +91,7 @@ def main():
         comp_next_state = np.concatenate((next_state, env.params))
         agent.remember([comp_state], [action], [comp_next_state], [reward], [done])
 
-        if args.mode is 'train' and i >= args.warmup:
+        if args.mode == 'train' and i >= args.warmup:
             agent.update()
 
         state = next_state
@@ -100,7 +101,7 @@ def main():
             done = True
 
     env.close()
-    if args.mode is 'train':
+    if args.mode == 'train':
         agent.save_model('models', episode)
         print("Saved model: {}".format(episode))
 
@@ -110,7 +111,7 @@ if __name__ == '__main__':
         main()
     except KeyboardInterrupt:
         env.close()
-        if args.mode is 'train':
+        if args.mode == 'train':
             agent.save_model('models', episode)
             print("Saved model: {}".format(episode))
     sys.exit(0)
