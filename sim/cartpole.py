@@ -57,13 +57,13 @@ class CartPoleEnv(gym.Env):
         self.total_mass = (self.masspole + self.masscart)
         self.length = 0.5 # actually half the pole's length in meters
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.8 # friction cart
+        self.mu_cart = 0.9 # friction cart
         self.mu_pole = 0.03 # friction pole
 
         self.nc_sign = 1
         self.i = 0 # current
 
-        self.Psi = 0.08 # flux
+        self.Psi = 0.1 # flux
         self.R = 1 # resistance
         self.L = 0.05 # inductance
         self.radius = 0.02
@@ -85,7 +85,9 @@ class CartPoleEnv(gym.Env):
 
         high = np.array([self.x_threshold,
                          np.finfo(np.float32).max,
+                         np.finfo(np.float32).max,
                          np.pi,
+                         np.finfo(np.float32).max,
                          np.finfo(np.float32).max],
                         dtype=np.float32)
 
@@ -105,8 +107,8 @@ class CartPoleEnv(gym.Env):
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
-        x, x_dot, theta, theta_dot = state
-        u = action[0]*100
+        x, x_dot, _, theta, theta_dot, _ = state
+        u = action[0]*80
 
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
@@ -149,11 +151,11 @@ class CartPoleEnv(gym.Env):
         theta = theta % (2*np.pi)
         if theta >= np.pi:
             theta -= 2*np.pi
-        self.state = (x,x_dot,theta,theta_dot)
+        self.state = (x,x_dot,self.xacc,theta,theta_dot,thetaacc)
 
         if self.motortest:
             return x_dot
-            
+
         done =  x < -self.x_threshold \
                 or x > self.x_threshold
         if not self.swingup:
@@ -176,11 +178,11 @@ class CartPoleEnv(gym.Env):
         return np.array(self.state), reward, done, {}
 
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(6,))
         if self.swingup:
-            self.state[2] = (self.state[2] + np.pi) % (2*np.pi)
-            if self.state[2] >= np.pi:
-                self.state[2] -= 2*np.pi
+            self.state[3] = (self.state[3] + np.pi) % (2*np.pi)
+            if self.state[3] >= np.pi:
+                self.state[3] -= 2*np.pi
         self.i = 0
         self.xacc = 0
         self.steps_beyond_done = None
@@ -235,7 +237,7 @@ class CartPoleEnv(gym.Env):
         x = self.state
         cartx = x[0]*scale+screen_width/2.0 # MIDDLE OF CART
         self.carttrans.set_translation(cartx, carty)
-        self.poletrans.set_rotation(-x[2])
+        self.poletrans.set_rotation(-x[3])
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
@@ -263,7 +265,7 @@ if __name__ == '__main__':
     else:
         import keyboard
         env = CartPoleEnv(swingup=True, randomize=False)
-        state = env.reset()
+        env.reset()
         done = False
         while not done:
             env.render()
@@ -273,5 +275,5 @@ if __name__ == '__main__':
                 action = np.array([.99])
             else:
                 action = np.array([0])
-            state, _, done, _ = env.step(action)
+            _, _, done, _ = env.step(action)
         env.close()
