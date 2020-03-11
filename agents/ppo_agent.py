@@ -34,8 +34,7 @@ class PPOAgent():
         self.memory.push(*args)
 
     def update(self):
-        if len(self.memory) < self.batch_size:
-            return
+        assert(len(self.memory) > 0 and len(self.memory) % self.batch_size == 0)
         
         batch = Transition_PPO(*zip(*self.memory.memory))
         state_batch = torch.tensor(np.concatenate(batch.state)).float()
@@ -55,15 +54,16 @@ class PPOAgent():
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
         for _ in range(self.epochs):
-            logprobs, state_values, dist_entropy = self.policy.evaluate(state_batch, action_batch)
-            ratios = torch.exp(logprobs - logprob_batch)
-            advantages = rewards - state_values
-            surr1 = ratios * advantages
-            surr2 = torch.clamp(ratios, 1-self.epsilon, 1+self.epsilon) * advantages
-            loss = - torch.min(surr1, surr2) + 0.5*torch.nn.functional.mse_loss(state_values, rewards) - 0.01 * dist_entropy
-            self.optim.zero_grad()
-            loss.mean().backward()
-            self.optim.step()
+            for i in range(0, len(self.memory), self.batch_size):
+                logprobs, state_values, dist_entropy = self.policy.evaluate(state_batch[i:i+self.batch_size], action_batch[i:i+self.batch_size])
+                ratios = torch.exp(logprobs - logprob_batch[i:i+self.batch_size])
+                advantages = rewards[i:i+self.batch_size] - state_values
+                surr1 = ratios * advantages
+                surr2 = torch.clamp(ratios, 1-self.epsilon, 1+self.epsilon) * advantages
+                loss = - torch.min(surr1, surr2) + 0.5*torch.nn.functional.mse_loss(state_values, rewards[i:i+self.batch_size]) - 0.01 * dist_entropy
+                self.optim.zero_grad()
+                loss.mean().backward()
+                self.optim.step()
         
         self.policy_old.load_state_dict(self.policy.state_dict())
 

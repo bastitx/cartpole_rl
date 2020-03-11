@@ -20,8 +20,8 @@ def main():
 	parser.add_argument('--resume-episode', default=0, type=int)
 	parser.add_argument('--gamma', default=0.99, type=float)
 	parser.add_argument('--lr', default=0.0001, type=float)
-	parser.add_argument('--batch-size', default=4096, type=int)
-	parser.add_argument('--memory-size', default=10000, type=int)
+	parser.add_argument('--batch-size', default=512, type=int)
+	parser.add_argument('--memory-size', default=8192, type=int)
 	parser.add_argument('--epochs', default=80, type=int)
 	parser.add_argument('--randomize', dest='randomize', action='store_true')
 	parser.set_defaults(randomize=False)
@@ -83,7 +83,7 @@ def main():
 		comp_next_state = np.concatenate((next_state, env.params))
 		agent.remember([comp_state], [action], [logprob], [comp_next_state], [reward], [done])
 
-		if args.mode == 'train' and i % args.batch_size == 0:
+		if args.mode == 'train' and i % args.memory_size == 0 and i > 0:
 			agent.update()
 			agent.memory.clear()
 

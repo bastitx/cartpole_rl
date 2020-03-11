@@ -52,6 +52,29 @@ class CriticModel(nn.Module):
         out = self.fc3(out)
         return out
 
+class CriticModel2(nn.Module):
+    def __init__(self, state_shape, action_shape, init_w=0.003):
+        super().__init__()
+        self.action_shape = action_shape
+        self.state_shape = state_shape
+
+        self.fc1 = nn.Linear(self.state_shape[0], 400)
+        self.fc2 = nn.Linear(400, 300)
+        self.fc3 = nn.Linear(300, 1)
+
+        self.init_weights(init_w)
+
+    def init_weights(self, init_w):
+        self.fc1.weight.data.uniform_(-1./np.sqrt(self.state_shape[0]), 1./np.sqrt(self.state_shape[0]))
+        self.fc2.weight.data.uniform_(-1./np.sqrt(400), 1./np.sqrt(400))
+        self.fc3.weight.data.uniform_(-init_w, init_w)
+
+    def forward(self, x):
+        out = F.relu(self.fc1(x))
+        out = F.relu(self.fc2(out))
+        out = self.fc3(out)
+        return out
+
     
 class ActorCriticModel(nn.Module):
     def __init__(self, state_shape, action_shape, action_var):
@@ -60,7 +83,7 @@ class ActorCriticModel(nn.Module):
         self.state_shape = state_shape
 
         self.actor = ActorModel(self.state_shape, self.action_shape)
-        self.critic = ActorModel(self.state_shape, self.action_shape) #just architecture is like actor
+        self.critic = CriticModel2(self.state_shape, self.action_shape)
         self.action_var = torch.nn.Parameter(torch.full(action_shape, action_var))
     
     def forward(self, state):
