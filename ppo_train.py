@@ -2,7 +2,6 @@ import gym
 from agents.ppo_agent import PPOAgent
 from sim.cartpole import CartPoleEnv
 from model import ActorCriticModel
-import torch
 import sys
 import argparse
 import numpy as np
