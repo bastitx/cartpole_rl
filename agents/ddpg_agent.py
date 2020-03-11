@@ -8,6 +8,7 @@ from util.replay_memory import ReplayMemory, Transition
 from util.updates import soft_update, hard_update
 from util.random_process import OrnsteinUhlenbeckProcess
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class DDPGAgent():
     def __init__(self, state_shape, action_shape, ActorModel, CriticModel, gamma=0.99, epsilon=1.0, epsilon_min=0.1,
@@ -24,10 +25,10 @@ class DDPGAgent():
         self.random_process = OrnsteinUhlenbeckProcess(
             size=self.action_shape, theta=0.15, mu=0, sigma=0.2)
         self.batch_size = batch_size
-        self.actor = ActorModel(self.state_shape, self.action_shape)
-        self.actor_target = ActorModel(self.state_shape, self.action_shape)
-        self.critic = CriticModel(self.state_shape, self.action_shape)
-        self.critic_target = CriticModel(self.state_shape, self.action_shape)
+        self.actor = ActorModel(self.state_shape, self.action_shape).to(device)
+        self.actor_target = ActorModel(self.state_shape, self.action_shape).to(device)
+        self.critic = CriticModel(self.state_shape, self.action_shape).to(device)
+        self.critic_target = CriticModel(self.state_shape, self.action_shape).to(device)
         self.optim_actor = torch.optim.Adam(self.actor.parameters(), lr=self.lr_actor)
         self.optim_critic = torch.optim.Adam(self.critic.parameters(), lr=self.lr_critic)  # , weight_decay=0.01)
         self.memory = ReplayMemory(memory_size, Transition)
@@ -52,13 +53,13 @@ class DDPGAgent():
             return
         transitions = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
-        state_batch = torch.tensor(np.concatenate(batch.state)).float()
-        action_batch = torch.tensor(np.concatenate(batch.action)).float()
-        reward_batch = torch.tensor(np.concatenate(batch.reward)[:, None]).float()
-        done_batch = torch.tensor(np.concatenate(batch.done)[:, None].astype(np.float)).float()
+        state_batch = torch.tensor(np.concatenate(batch.state), device=device).float()
+        action_batch = torch.tensor(np.concatenate(batch.action), device=device).float()
+        reward_batch = torch.tensor(np.concatenate(batch.reward)[:, None], device=device).float()
+        done_batch = torch.tensor(np.concatenate(batch.done)[:, None].astype(np.float), device=device).float()
 
         with torch.no_grad():
-            next_state_batch = torch.tensor(np.concatenate(batch.next_state)).float()
+            next_state_batch = torch.tensor(np.concatenate(batch.next_state), device=device).float()
             next_q_values = self.critic_target((next_state_batch, self.actor_target(next_state_batch)))
 
         q_target_batch = reward_batch + self.gamma * \
@@ -82,7 +83,7 @@ class DDPGAgent():
         if folder is None:
             return
 
-        checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(folder, epoch))
+        checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(folder, epoch), map_location=device)
         self.actor.load_state_dict(checkpoint['actor'])
         self.actor_target.load_state_dict(checkpoint['actor_target'])
         self.critic.load_state_dict(checkpoint['critic'])

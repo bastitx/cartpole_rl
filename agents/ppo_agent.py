@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import numpy as np
 from util.replay_memory import ReplayMemory, Transition_PPO
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class PPOAgent():
     def __init__(self, state_shape, action_shape, ActorCritic, gamma=0.99, lr=0.0001, batch_size=64, epochs=80, memory_size=10000):
@@ -15,16 +16,16 @@ class PPOAgent():
         self.epsilon = 0.2  # clip
         self.lr = lr
         self.batch_size = batch_size
-        self.policy = ActorCritic(state_shape, action_shape, 0.1)
+        self.policy = ActorCritic(state_shape, action_shape, 0.1).to(device)
         self.optim = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
-        self.policy_old = ActorCritic(state_shape, action_shape, 0.25)
+        self.policy_old = ActorCritic(state_shape, action_shape, 0.25).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         self.epochs = epochs
         self.memory = ReplayMemory(memory_size, Transition_PPO)
 
 
     def act(self, state):
-        comp_state = torch.tensor(state).float()
+        comp_state = torch.tensor(state, device=device).float()
         action, logprob = self.policy_old(comp_state)
         action = action.detach().numpy()
         action = np.clip(action, -1., 1.)
@@ -37,9 +38,9 @@ class PPOAgent():
         assert(len(self.memory) > 0 and len(self.memory) % self.batch_size == 0)
         
         batch = Transition_PPO(*zip(*self.memory.memory))
-        state_batch = torch.tensor(np.concatenate(batch.state)).float()
-        action_batch = torch.tensor(np.concatenate(batch.action)).float()
-        logprob_batch = torch.tensor(np.concatenate(batch.logprob)).float()
+        state_batch = torch.tensor(np.concatenate(batch.state), device=device).float()
+        action_batch = torch.tensor(np.concatenate(batch.action), device=device).float()
+        logprob_batch = torch.tensor(np.concatenate(batch.logprob), device=device).float()
         reward_batch = np.concatenate(batch.reward)[:, None]
         done_batch = np.concatenate(batch.done)[:, None].astype(np.float)
 
@@ -50,7 +51,7 @@ class PPOAgent():
                 discounted_reward = 0
             discounted_reward = reward + self.gamma * discounted_reward
             rewards.insert(0, discounted_reward)
-        rewards = torch.tensor(rewards).float()
+        rewards = torch.tensor(rewards, device=device).float()
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
 
         for _ in range(self.epochs):
@@ -71,7 +72,7 @@ class PPOAgent():
         if folder is None:
             return
 
-        checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(folder, epoch))
+        checkpoint = torch.load('{}/checkpoint-{}.pkl'.format(folder, epoch), map_location=device)
         self.policy.load_state_dict(checkpoint['policy'])
         self.policy_old.load_state_dict(checkpoint['policy'])
         self.optim.load_state_dict(checkpoint['optim'])

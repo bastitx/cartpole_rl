@@ -2,7 +2,6 @@ import gym
 from agents.ddpg_agent import DDPGAgent
 from sim.cartpole import CartPoleEnv
 from model import ActorModel, CriticModel
-import torch
 import sys
 import argparse
 import numpy as np
