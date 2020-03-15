@@ -263,20 +263,16 @@ if __name__ == '__main__':
         #plt.plot(np.arange(n)*m.tau, 10)
         plt.show()
     else:
-        import keyboard
+        from agents.keyboard_agent import KeyboardAgent as Agent
         env = CartPoleEnv(swingup=True, randomize=False)
+        agent = Agent()
         memory = []
         i = 0
         state = env.reset()
         done = False
         while not done:
             env.render()
-            if keyboard.is_pressed('left'):
-                action = np.array([-.99])
-            elif keyboard.is_pressed('right'):
-                action = np.array([.99])
-            else:
-                action = np.array([0])
+            action = agent.act(state)
             next_state, _, done, _ = env.step(action)
             memory += [[i, state[0], state[3], action[0]]]
             state = next_state
