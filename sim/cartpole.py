@@ -249,7 +249,7 @@ class CartPoleEnv(gym.Env):
 
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) > 1 and 'motor' in sys.argv:
+    if len(sys.argv) > 1 and '--motor-test' in sys.argv:
         import matplotlib.pyplot as plt
         env = CartPoleEnv(swingup=True, randomize=False, motortest=True)
         n = 100
@@ -265,7 +265,9 @@ if __name__ == '__main__':
     else:
         import keyboard
         env = CartPoleEnv(swingup=True, randomize=False)
-        env.reset()
+        memory = []
+        i = 0
+        state = env.reset()
         done = False
         while not done:
             env.render()
@@ -275,5 +277,15 @@ if __name__ == '__main__':
                 action = np.array([.99])
             else:
                 action = np.array([0])
-            _, _, done, _ = env.step(action)
+            next_state, _, done, _ = env.step(action)
+            memory += [[i, state[0], state[3], action[0]]]
+            state = next_state
+            i += 1
         env.close()
+        if len(sys.argv) > 1 and '--write-mem' in sys.argv:
+            import csv
+            with open('memory.csv', 'w', newline='') as csvfile:
+                writer = csv.writer(csvfile, delimiter=',')
+                writer.writerow(['i', 'x', 'theta', 'action'])
+                writer.writerows(memory)
+
