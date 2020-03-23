@@ -263,25 +263,29 @@ if __name__ == '__main__':
         #plt.plot(np.arange(n)*m.tau, 10)
         plt.show()
     else:
-        from agents.keyboard_agent import KeyboardAgent as Agent
+        from agents.sin_agent import SinAgent as Agent
         env = CartPoleEnv(swingup=True, randomize=False)
+        env.x_threshold = 20
         agent = Agent()
         memory = []
         i = 0
         state = env.reset()
         done = False
-        while not done:
-            env.render()
-            action = agent.act(state)
-            next_state, _, done, _ = env.step(action)
-            memory += [[i, state[0], state[3], action[0]]]
-            state = next_state
-            i += 1
-        env.close()
-        if len(sys.argv) > 1 and '--write-mem' in sys.argv:
-            import csv
-            with open('memory.csv', 'w', newline='') as csvfile:
-                writer = csv.writer(csvfile, delimiter=',')
-                writer.writerow(['i', 'x', 'theta', 'action'])
-                writer.writerows(memory)
+        try:
+            while True:
+                env.render()
+                action = agent.act(state)
+                next_state, _, done, _ = env.step(action)
+                memory += [[i, state[0], state[3], action[0]]]
+                state = next_state
+                i += 1
+        except KeyboardInterrupt:
+            env.close()
+            if len(sys.argv) > 1 and '--write-mem' in sys.argv:
+                import csv
+                with open('memory.csv', 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile, delimiter=',')
+                    writer.writerow(['i', 'x', 'theta', 'action'])
+                    writer.writerows(memory)
+        sys.exit(0)
 
