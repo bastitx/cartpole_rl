@@ -37,7 +37,7 @@ class DDPGAgent():
         hard_update(self.critic_target, self.critic)
 
     def act(self, state):
-        comp_state = torch.tensor(state).float()
+        comp_state = torch.tensor(state, device=device).float()
         action = self.actor(comp_state).detach().cpu().numpy()
         action += self.epsilon * self.random_process.sample()
         #action += np.random.normal(scale=self.epsilon)
