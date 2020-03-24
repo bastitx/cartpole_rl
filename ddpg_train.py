@@ -34,9 +34,7 @@ def main():
 
     args = parser.parse_args()
 
-    env = CartPoleEnv(args.swingup)
-    env.seed(0)
-    env.params = np.array([])
+    env = CartPoleEnv(args.swingup, args.randomize)
 
     writer = SummaryWriter()
 
@@ -63,9 +61,6 @@ def main():
         if done:
             episode += 1
             episode_length = i - last_episode_start
-            #print("{}/{}: episode: {}, avg.reward: {:.3f}, length: {}, epsilon: {:.3f}".format(
-            #    i, args.max_iterations, episode, episode_reward/episode_length,
-            #    episode_length, agent.epsilon))
             writer.add_scalar('EpisodeReward/total', episode_reward, episode)
             writer.add_scalar('EpisodeReward/avg', episode_reward/episode_length, episode)
             writer.add_scalar('EpisodeLength', episode_length, episode)
@@ -73,8 +68,7 @@ def main():
             writer.add_scalar('Memory', len(agent.memory.memory), episode)
             writer.flush()
             if args.randomize:
-                env.close()
-                env.reinit()
+                env.randomize_params()
             state = env.reset()
             comp_state = np.concatenate((state, env.params))
             episode_reward = 0
@@ -85,7 +79,6 @@ def main():
         
         action = agent.act(comp_state)
         next_state, reward, done, _ = env.step(action)
-        #print(state[1], action[0], reward)
         episode_reward += reward
         comp_next_state = np.concatenate((next_state, env.params))
         agent.remember([comp_state], [action], [comp_next_state], [reward], [done])
