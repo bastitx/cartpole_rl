@@ -77,14 +77,8 @@ class CartPoleEnv(gym.Env):
         self.randomize = randomize
         self.motortest = motortest
 
-        low = np.array([0.2, 0.05, 0.03, 0.8, 0.01, 0.01, 0.1, 0.0001])
-        high = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
-        self.param_space = spaces.Box(low, high, dtype=np.float32)
-
-        if self.randomize:
-            self.randomize_params()
-
         #add noise?
+        #add delay?
 
         # Angle at which to fail the episode if swingup != False
         self.theta_threshold_radians = 0.21
@@ -97,9 +91,18 @@ class CartPoleEnv(gym.Env):
                          np.finfo(np.float32).max,
                          np.finfo(np.float32).max],
                         dtype=np.float32)
+        low = -high
+
+        if self.randomize:
+            low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.01, 0.01, 0.1, 0.0001])
+            high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
+            self.param_space = spaces.Box(low, high, dtype=np.float32)
+            self.randomize_params()
+            low = np.append(low, low_p)
+            high = np.append(high, high_p)
 
         self.action_space = spaces.Box(np.array([-1]), np.array([1]), dtype=np.float32)
-        self.observation_space = spaces.Box(-high, high, dtype=np.float32)
+        self.observation_space = spaces.Box(low, high, dtype=np.float32)
 
         self.seed()
         self.viewer = None
@@ -129,6 +132,7 @@ class CartPoleEnv(gym.Env):
         self.L = val[7]
     
     def randomize_params(self):
+        assert(self.randomize)
         self.params = self.param_space.sample()
 
     def step(self, action):
@@ -178,7 +182,10 @@ class CartPoleEnv(gym.Env):
         theta = theta % (2*np.pi)
         if theta >= np.pi:
             theta -= 2*np.pi
-        self.state = (x,x_dot,self.xacc,theta,theta_dot,thetaacc)
+        if self.randomize:
+            self.state = (x,x_dot,self.xacc,theta,theta_dot,thetaacc, *self.params)
+        else:
+            self.state = (x,x_dot,self.xacc,theta,theta_dot,thetaacc)
 
         if self.motortest:
             return x_dot
@@ -205,11 +212,15 @@ class CartPoleEnv(gym.Env):
         return np.array(self.state), reward, done, {}
 
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(6,))
+        state = self.np_random.uniform(low=-0.05, high=0.05, size=(6,))
         if self.swingup:
-            self.state[3] = (self.state[3] + np.pi) % (2*np.pi)
-            if self.state[3] >= np.pi:
-                self.state[3] -= 2*np.pi
+            state[3] = (state[3] + np.pi) % (2*np.pi)
+            if state[3] >= np.pi:
+                state[3] -= 2*np.pi
+        if self.randomize:
+            self.state = np.append(state, self.params)
+        else:
+            self.state = state
         self.i = 0
         self.xacc = 0
         self.steps_beyond_done = None

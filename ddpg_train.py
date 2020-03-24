@@ -39,7 +39,6 @@ def main():
     writer = SummaryWriter()
 
     state_shape = np.array(env.observation_space.shape)
-    state_shape += np.array(env.params.shape)
     agent = DDPGAgent(tuple(state_shape), env.action_space.shape, ActorModel, CriticModel, args.gamma, args.epsilon, args.epsilon_min,
                       args.epsilon_decay, args.lr_actor, args.lr_critic, args.tau, args.batch_size, args.memory_size)
     #writer.add_graph(agent.actor)
@@ -70,24 +69,21 @@ def main():
             if args.randomize:
                 env.randomize_params()
             state = env.reset()
-            comp_state = np.concatenate((state, env.params))
             episode_reward = 0
             last_episode_start = i
 
         if args.mode != 'train':
             env.render()
         
-        action = agent.act(comp_state)
+        action = agent.act(state)
         next_state, reward, done, _ = env.step(action)
         episode_reward += reward
-        comp_next_state = np.concatenate((next_state, env.params))
-        agent.remember([comp_state], [action], [comp_next_state], [reward], [done])
+        agent.remember([state], [action], [next_state], [reward], [done])
 
         if args.mode == 'train' and i >= args.warmup:
             agent.update()
 
         state = next_state
-        comp_state = comp_next_state
 
         if i - last_episode_start >= args.max_episode_length:
             done = True

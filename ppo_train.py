@@ -36,11 +36,8 @@ def main():
 	writer = SummaryWriter()
 
 	state_shape = np.array(env.observation_space.shape)
-	state_shape += np.array(env.params.shape)
 	agent = PPOAgent(tuple(state_shape), env.action_space.shape, ActorCriticModel, args.gamma, 
 					args.lr, args.batch_size, args.epochs, args.memory_size)
-	#writer.add_graph(agent.actor)
-	#writer.add_graph(agent.critic)
 
 	if args.resume_episode > 0:
 		try:
@@ -65,18 +62,16 @@ def main():
 			writer.add_scalar('Memory', len(agent.memory.memory), episode)
 			writer.flush()
 			state = env.reset()
-			comp_state = np.concatenate((state, env.params))
 			episode_reward = 0
 			last_episode_start = i
 
 		if args.render:
 			env.render()
 
-		action, logprob = agent.act(comp_state)
+		action, logprob = agent.act(state)
 		next_state, reward, done, _ = env.step(action)
 		episode_reward += reward
-		comp_next_state = np.concatenate((next_state, env.params))
-		agent.remember([comp_state], [action], [logprob], [comp_next_state], [reward], [done])
+		agent.remember([state], [action], [logprob], [next_state], [reward], [done])
 
 		if args.mode == 'train' and i % args.memory_size == 0 and i > 0:
 			agent.update()
@@ -86,7 +81,6 @@ def main():
 				done = True
 
 		state = next_state
-		comp_state = comp_next_state
 
 		if i - last_episode_start >= args.max_episode_length:
 			done = True
