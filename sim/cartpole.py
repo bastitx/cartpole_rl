@@ -210,7 +210,6 @@ class CartPoleEnv(gym.Env):
             self.state[3] = (self.state[3] + np.pi) % (2*np.pi)
             if self.state[3] >= np.pi:
                 self.state[3] -= 2*np.pi
-        self.randomize_params()
         self.i = 0
         self.xacc = 0
         self.steps_beyond_done = None

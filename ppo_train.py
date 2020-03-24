@@ -32,7 +32,6 @@ def main():
 	args = parser.parse_args()
 
 	env = CartPoleEnv(args.swingup, args.randomize)
-	env.params = np.array([])
 
 	writer = SummaryWriter()
 
@@ -65,9 +64,6 @@ def main():
 			writer.add_scalar('Variance', agent.policy.action_var, episode)
 			writer.add_scalar('Memory', len(agent.memory.memory), episode)
 			writer.flush()
-			if args.randomize:
-				env.close()
-				#env.reinit()
 			state = env.reset()
 			comp_state = np.concatenate((state, env.params))
 			episode_reward = 0
@@ -85,6 +81,9 @@ def main():
 		if args.mode == 'train' and i % args.memory_size == 0 and i > 0:
 			agent.update()
 			agent.memory.clear()
+			if args.randomize:
+				env.randomize_params()
+				done = True
 
 		state = next_state
 		comp_state = comp_next_state
