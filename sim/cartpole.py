@@ -86,9 +86,7 @@ class CartPoleEnv(gym.Env):
 
         high = np.array([self.x_threshold,
                          np.finfo(np.float32).max,
-                         np.finfo(np.float32).max,
                          np.pi,
-                         np.finfo(np.float32).max,
                          np.finfo(np.float32).max],
                         dtype=np.float32)
         low = -high
@@ -96,7 +94,7 @@ class CartPoleEnv(gym.Env):
         if self.randomize:
             low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.01, 0.01, 0.1, 0.0001])
             high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
-            self.param_space = spaces.Box(low, high, dtype=np.float32)
+            self.param_space = spaces.Box(low_p, high_p, dtype=np.float32)
             self.randomize_params()
             low = np.append(low, low_p)
             high = np.append(high, high_p)
@@ -138,7 +136,7 @@ class CartPoleEnv(gym.Env):
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
-        x, x_dot, _, theta, theta_dot, _ = state
+        x, x_dot, theta, theta_dot, *_ = state
         u = action[0]*80
 
         costheta = math.cos(theta)
@@ -183,9 +181,9 @@ class CartPoleEnv(gym.Env):
         if theta >= np.pi:
             theta -= 2*np.pi
         if self.randomize:
-            self.state = (x,x_dot,self.xacc,theta,theta_dot,thetaacc, *self.params)
+            self.state = (x,x_dot,theta,theta_dot, *self.params)
         else:
-            self.state = (x,x_dot,self.xacc,theta,theta_dot,thetaacc)
+            self.state = (x,x_dot,theta,theta_dot)
 
         if self.motortest:
             return x_dot
@@ -212,11 +210,11 @@ class CartPoleEnv(gym.Env):
         return np.array(self.state), reward, done, {}
 
     def reset(self):
-        state = self.np_random.uniform(low=-0.05, high=0.05, size=(6,))
+        state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
         if self.swingup:
-            state[3] = (state[3] + np.pi) % (2*np.pi)
-            if state[3] >= np.pi:
-                state[3] -= 2*np.pi
+            state[2] = (state[2] + np.pi) % (2*np.pi)
+            if state[2] >= np.pi:
+                state[2] -= 2*np.pi
         if self.randomize:
             self.state = np.append(state, self.params)
         else:
@@ -275,7 +273,7 @@ class CartPoleEnv(gym.Env):
         x = self.state
         cartx = x[0]*scale+screen_width/2.0 # MIDDLE OF CART
         self.carttrans.set_translation(cartx, carty)
-        self.poletrans.set_rotation(-x[3])
+        self.poletrans.set_rotation(-x[2])
 
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
