@@ -77,6 +77,13 @@ class CartPoleEnv(gym.Env):
         self.randomize = randomize
         self.motortest = motortest
 
+        low = np.array([0.2, 0.05, 0.03, 0.8, 0.01, 0.01, 0.1, 0.0001])
+        high = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
+        self.param_space = spaces.Box(low, high, dtype=np.float32)
+
+        if self.randomize:
+            self.randomize_params()
+
         #add noise?
 
         # Angle at which to fail the episode if swingup != False
@@ -103,6 +110,26 @@ class CartPoleEnv(gym.Env):
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
+    
+    @property
+    def params(self):
+        return [self.masscart, self.masspole, self.length, self.mu_cart, self.mu_pole, 
+                self.Psi, self.R, self.L]
+    
+    @params.setter
+    def params(self, val):
+        assert(len(val) == 8)
+        self.masscart = val[0]
+        self.masspole = val[1]
+        self.length = val[2]
+        self.mu_cart = val[3]
+        self.mu_pole = val[4]
+        self.Psi = val[5]
+        self.R = val[6]
+        self.L = val[7]
+    
+    def randomize_params(self):
+        self.params = self.param_space.sample()
 
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
@@ -183,6 +210,7 @@ class CartPoleEnv(gym.Env):
             self.state[3] = (self.state[3] + np.pi) % (2*np.pi)
             if self.state[3] >= np.pi:
                 self.state[3] -= 2*np.pi
+        self.randomize_params()
         self.i = 0
         self.xacc = 0
         self.steps_beyond_done = None
@@ -263,9 +291,9 @@ if __name__ == '__main__':
         #plt.plot(np.arange(n)*m.tau, 10)
         plt.show()
     else:
-        from agents.sin_agent import SinAgent as Agent
+        from agents.keyboard_agent import KeyboardAgent as Agent
         env = CartPoleEnv(swingup=True, randomize=False)
-        env.x_threshold = 20
+        #env.x_threshold = 20
         agent = Agent()
         memory = []
         i = 0
