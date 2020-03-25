@@ -61,6 +61,8 @@ def main():
 			writer.add_scalar('Memory', len(agent.memory.memory), episode)
 			writer.flush()
 			state = env.reset()
+			if args.randomize:
+				env.randomize_params()
 			episode_reward = 0
 			last_episode_start = i
 
@@ -77,7 +79,6 @@ def main():
 			writer.add_scalar('Loss/Avg', avg_loss, i)
 			agent.memory.clear()
 			if args.randomize:
-				env.randomize_params()
 				done = True
 
 		state = next_state

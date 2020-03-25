@@ -24,7 +24,6 @@ class PPOAgent():
         self.memory = ReplayMemory(memory_size, Transition_PPO)
         self.MseLoss = nn.MSELoss()
 
-
     def act(self, state):
         comp_state = torch.tensor(state[None,:], device=device).float()
         action, logprob = self.policy_old.act(comp_state)
@@ -49,6 +48,7 @@ class PPOAgent():
         for reward, done in zip(reversed(reward_batch), reversed(done_batch)):
             if done:
                 discounted_reward = 0
+            # use GAE?
             discounted_reward = reward + self.gamma * discounted_reward
             rewards.insert(0, discounted_reward)
         rewards = torch.tensor(rewards, device=device).float()
@@ -61,6 +61,7 @@ class PPOAgent():
                 logprobs, state_values, dist_entropy = self.policy.evaluate(state_batch[i:i+self.batch_size], action_batch[i:i+self.batch_size])
                 ratios = torch.exp(logprobs - logprob_batch[i:i+self.batch_size].detach())
                 advantages = rewards[i:i+self.batch_size] - state_values.detach()
+                # normalize advantages?
                 surr1 = ratios * advantages
                 surr2 = torch.clamp(ratios, 1-self.epsilon, 1+self.epsilon) * advantages
                 loss = -torch.min(surr1, surr2) + 0.5*self.MseLoss(state_values, rewards[i:i+self.batch_size]) - 0.01 * dist_entropy
