@@ -35,8 +35,7 @@ def main():
 
 	writer = SummaryWriter()
 
-	state_shape = np.array(env.observation_space.shape)
-	agent = PPOAgent(tuple(state_shape), env.action_space.shape, ActorCriticModel, args.gamma, 
+	agent = PPOAgent(env.observation_space.shape, env.action_space.shape, ActorCriticModel, args.gamma, 
 					args.lr, args.batch_size, args.epochs, args.memory_size)
 
 	if args.resume_episode > 0:
@@ -74,7 +73,8 @@ def main():
 		agent.remember([state], [action], [logprob], [next_state], [reward], [done])
 
 		if args.mode == 'train' and i % args.memory_size == 0 and i > 0:
-			agent.update()
+			avg_loss = agent.update()
+			writer.add_scalar('Loss/Avg', avg_loss, i)
 			agent.memory.clear()
 			if args.randomize:
 				env.randomize_params()

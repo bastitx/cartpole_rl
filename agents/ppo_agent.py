@@ -16,20 +16,20 @@ class PPOAgent():
         self.epsilon = 0.2  # clip
         self.lr = lr
         self.batch_size = batch_size
-        self.policy = ActorCritic(state_shape, action_shape, 0.1).to(device)
-        self.optim = torch.optim.Adam(self.policy.parameters(), lr=self.lr)
+        self.policy = ActorCritic(state_shape, action_shape, 0.25).to(device)
+        self.optim = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=(0.9, 0.999))
         self.policy_old = ActorCritic(state_shape, action_shape, 0.25).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         self.epochs = epochs
         self.memory = ReplayMemory(memory_size, Transition_PPO)
+        self.MseLoss = nn.MSELoss()
 
 
     def act(self, state):
-        comp_state = torch.tensor(state, device=device).float()
-        action, logprob = self.policy_old(comp_state)
-        action = action.detach().cpu().numpy()
-        action = np.clip(action, -1., 1.)
-        return action, logprob.detach().cpu().numpy()
+        comp_state = torch.tensor(state[None,:], device=device).float()
+        action, logprob = self.policy_old.act(comp_state)
+        action = torch.clamp(action, -1, 1).squeeze(1)
+        return action.detach().cpu().numpy(), logprob.detach().cpu().numpy()
 
     def remember(self, *args):
         self.memory.push(*args)
@@ -38,11 +38,11 @@ class PPOAgent():
         assert(len(self.memory) > 0 and len(self.memory) % self.batch_size == 0)
         
         batch = Transition_PPO(*zip(*self.memory.memory))
-        state_batch = torch.tensor(np.concatenate(batch.state), device=device).float()
-        action_batch = torch.tensor(np.concatenate(batch.action), device=device).float()
-        logprob_batch = torch.tensor(np.concatenate(batch.logprob), device=device).float()
-        reward_batch = np.concatenate(batch.reward)[:, None]
-        done_batch = np.concatenate(batch.done)[:, None].astype(np.float)
+        state_batch = torch.tensor(np.concatenate(batch.state), device=device).float().detach()
+        action_batch = torch.tensor(np.concatenate(batch.action), device=device).float().detach()
+        logprob_batch = torch.tensor(np.concatenate(batch.logprob), device=device).squeeze(1).float().detach()
+        reward_batch = np.concatenate(batch.reward)
+        done_batch = np.concatenate(batch.done)
 
         rewards = []
         discounted_reward = 0
@@ -53,20 +53,26 @@ class PPOAgent():
             rewards.insert(0, discounted_reward)
         rewards = torch.tensor(rewards, device=device).float()
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+        
+        avg_loss = 0
 
         for _ in range(self.epochs):
             for i in range(0, len(self.memory), self.batch_size):
                 logprobs, state_values, dist_entropy = self.policy.evaluate(state_batch[i:i+self.batch_size], action_batch[i:i+self.batch_size])
-                ratios = torch.exp(logprobs - logprob_batch[i:i+self.batch_size])
-                advantages = rewards[i:i+self.batch_size] - state_values
+                ratios = torch.exp(logprobs - logprob_batch[i:i+self.batch_size].detach())
+                advantages = rewards[i:i+self.batch_size] - state_values.detach()
                 surr1 = ratios * advantages
                 surr2 = torch.clamp(ratios, 1-self.epsilon, 1+self.epsilon) * advantages
-                loss = - torch.min(surr1, surr2) + 0.5*torch.nn.functional.mse_loss(state_values, rewards[i:i+self.batch_size]) - 0.01 * dist_entropy
+                loss = -torch.min(surr1, surr2) + 0.5*self.MseLoss(state_values, rewards[i:i+self.batch_size]) - 0.01 * dist_entropy
+                avg_loss += loss.mean()
                 self.optim.zero_grad()
                 loss.mean().backward()
                 self.optim.step()
         
         self.policy_old.load_state_dict(self.policy.state_dict())
+
+        avg_loss /= (self.epochs + len(self.memory) // self.batch_size - 1)
+        return avg_loss
 
     def load_weights(self, folder, epoch, memory=True):
         if folder is None:

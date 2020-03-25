@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import numpy as np
 
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 class ActorModel(nn.Module):
     def __init__(self, state_shape, action_shape, init_w=0.003):
         super().__init__()
@@ -84,11 +86,14 @@ class ActorCriticModel(nn.Module):
 
         self.actor = ActorModel(self.state_shape, self.action_shape)
         self.critic = CriticModel2(self.state_shape, self.action_shape)
-        self.action_var = torch.nn.Parameter(torch.full(action_shape, action_var))
+        self.action_var = torch.nn.Parameter(torch.full(action_shape, action_var)).to(device)
     
-    def forward(self, state):
+    def forward(self):
+        raise NotImplementedError
+    
+    def act(self, state):
         a_mean = self.actor(state)
-        cov_mat = torch.diag(self.action_var)
+        cov_mat = torch.diag(self.action_var).to(device)
         dist = torch.distributions.MultivariateNormal(a_mean, cov_mat)
         a = dist.sample()
         a_logprob = dist.log_prob(a)
@@ -97,12 +102,12 @@ class ActorCriticModel(nn.Module):
     def evaluate(self, state, action):
         a_mean = self.actor(state)
         a_var = self.action_var.expand_as(a_mean)
-        cov_mat = torch.diag_embed(a_var)
+        cov_mat = torch.diag_embed(a_var).to(device)
         dist = torch.distributions.MultivariateNormal(a_mean, cov_mat)
         a_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
         state_value = self.critic(state)
-        return a_logprobs, state_value, dist_entropy
+        return a_logprobs, state_value.squeeze(1), dist_entropy
 
 class OsiModel(nn.Module):
     def __init__(self, input_shape, output_shape, init_w=0.003):
