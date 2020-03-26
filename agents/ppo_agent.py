@@ -91,6 +91,7 @@ class PPOAgent():
         torch.save({
             'epoch': epoch,
             'policy': self.policy.state_dict(),
+            'actor': self.policy.actor.state_dict(),
             'optim': self.optim.state_dict(),
             'memory': self.memory.memory
         }, '{}/checkpoint-{}.pkl'.format(output, epoch))

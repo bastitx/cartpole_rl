@@ -5,38 +5,43 @@ import numpy as np
 from util.replay_memory import ReplayMemory, Transition_OSI
 import model
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class OSI():
-    def __init__(self, input_space, output_space, lr=0.001, batch_size=64, memory_size=10000):
+    def __init__(self, input_space, output_space, lr=0.0001, batch_size=64, memory_size=10000, epochs=200):
         self.input_space = input_space
         self.output_space = output_space
-        self.net = model.OsiModel(input_space, output_space)
+        self.net = model.OsiModel(input_space, output_space).to(device)
         self.optim = torch.optim.Adam(self.net.parameters(), lr=lr)
         self.memory = ReplayMemory(memory_size, Transition_OSI)
         self.batch_size = batch_size
+        self.epochs = epochs
 
-    def predict(self, states, actions):
-        return self.net(torch.cat(torch.tensor(states).float(), torch.tensor(actions).float()))
+    def predict(self, state):
+        return self.net(torch.tensor(state, device=device).float()).detach().cpu().numpy()
 
     def remember(self, *args):
         self.memory.push(*args)
 
     def update(self):
-        if len(self.memory) < self.batch_size:
-            return
-        transitions = self.memory.sample(self.batch_size)
-        batch = Transition_OSI(*zip(*transitions))
-        state_history_batch = torch.tensor(
-            np.concatenate(batch.state_history)).float()
-        action_history_batch = torch.tensor(
-            np.concatenate(batch.action_history)).float()
-        actual_mu_batch = torch.tensor(np.concatenate(batch.actual_mu)).float()
+        assert(len(self.memory) > 0 and len(self.memory) % self.batch_size == 0)
 
-        predicted_mu_batch = self.net(
-            torch.cat(state_history_batch, action_history_batch))
-        loss = F.mse_loss(predicted_mu_batch, actual_mu_batch)
-        loss.backward()
-        self.optim.step()
+        batch = Transition_OSI(*zip(*self.memory.memory))
+        osi_state_history_batch = torch.tensor(batch.osi_state, device=device).float().detach()
+        actual_mu_batch = torch.tensor(np.concatenate(batch.actual_mu), device=device).float().detach()
+
+        losses = []
+        for _ in range(self.epochs):
+            loss_epoch = 0
+            for i in range(0, len(self.memory), self.batch_size):
+                predicted_mu_batch = self.net(osi_state_history_batch[i:i+self.batch_size])
+                loss = F.mse_loss(predicted_mu_batch, actual_mu_batch[i:i+self.batch_size])
+                loss_epoch += loss.detach()
+                self.optim.zero_grad()
+                loss.backward()
+                self.optim.step()
+            losses += [loss_epoch / (len(self.memory) // self.batch_size)]
+        return losses
 
     def load_weights(self, output, epoch, memory=True):
         if output is None:

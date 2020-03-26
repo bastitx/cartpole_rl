@@ -90,19 +90,19 @@ class CartPoleEnv(gym.Env):
                          np.finfo(np.float32).max],
                         dtype=np.float32)
         low = -high
-        self.observation_space = spaces.Box(low, high, dtype=np.float32)
+        self.observation_space = spaces.Box(low, high)
 
         low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.01, 0.01, 0.1, 0.0001])
         high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
-        self.param_space = spaces.Box(low_p, high_p, dtype=np.float32)
+        self.param_space = spaces.Box(low_p, high_p)
         low = np.append(low, low_p)
         high = np.append(high, high_p)
-        self.param_observation_space = spaces.Box(low, high, dtype=np.float32)
+        self.param_observation_space = spaces.Box(low, high)
 
         if self.observe_params:
             self.observation_space = self.param_observation_space
 
-        self.action_space = spaces.Box(np.array([-1]), np.array([1]), dtype=np.float32)
+        self.action_space = spaces.Box(np.array([-1]), np.array([1]))
 
         self.seed()
         self.viewer = None

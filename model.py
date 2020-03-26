@@ -115,22 +115,22 @@ class OsiModel(nn.Module):
         self.input_shape = input_shape
         self.output_shape = output_shape
 
-        self.fc1 = nn.Linear(self.input_shape, 256)
-        self.fc2 = nn.Linear(256, 128)
-        self.fc3 = nn.Linear(128, 64)
-        self.fc4 = nn.Linear(64, self.output_shape)
+        self.fc1 = nn.Linear(self.input_shape, 400)
+        self.fc2 = nn.Linear(400, 300)
+        self.fc3 = nn.Linear(300, 100)
+        self.fc4 = nn.Linear(100, self.output_shape)
 
         self.init_weights(init_w)
 
     def init_weights(self, init_w):
         self.fc1.weight.data.uniform_(-1./np.sqrt(self.input_shape), 1./np.sqrt(self.input_shape))
-        self.fc2.weight.data.uniform_(-1./np.sqrt(256), 1./np.sqrt(256))
-        self.fc3.weight.data.uniform_(-1./np.sqrt(128), 1./np.sqrt(128))
+        self.fc2.weight.data.uniform_(-1./np.sqrt(400), 1./np.sqrt(400))
+        self.fc3.weight.data.uniform_(-1./np.sqrt(300), 1./np.sqrt(300))
         self.fc4.weight.data.uniform_(-init_w, init_w)
 
-    def forward(self, x):
-        out = F.tanh(self.fc1(x))
-        out = F.tanh(self.fc2(out))
-        out = F.tanh(self.fc3(out))
-        out = F.tanh(self.fc4(out))
+    def forward(self, x): #add drop outs
+        out = torch.tanh(self.fc1(x))
+        out = torch.tanh(self.fc2(out))
+        out = torch.tanh(self.fc3(out))
+        out = self.fc4(out)
         return out
