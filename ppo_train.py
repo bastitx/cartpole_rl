@@ -31,7 +31,7 @@ def main():
 
 	args = parser.parse_args()
 
-	env = CartPoleEnv(args.swingup, args.randomize)
+	env = CartPoleEnv(args.swingup, observe_params=args.randomize)
 
 	writer = SummaryWriter()
 

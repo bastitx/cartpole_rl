@@ -50,7 +50,7 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=True, randomize=False, motortest=False):
+    def __init__(self, swingup=True, observe_params=False, motortest=False):
         self.gravity = 9.81
         self.masscart = 1.0 # kg
         self.masspole = 0.1 # kg
@@ -74,7 +74,7 @@ class CartPoleEnv(gym.Env):
         self.tau = 0.02  # seconds between state updates
 
         self.swingup = swingup
-        self.randomize = randomize
+        self.observe_params = observe_params
         self.motortest = motortest
 
         #add noise?
@@ -90,17 +90,19 @@ class CartPoleEnv(gym.Env):
                          np.finfo(np.float32).max],
                         dtype=np.float32)
         low = -high
+        self.observation_space = spaces.Box(low, high, dtype=np.float32)
 
-        if self.randomize:
-            low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.01, 0.01, 0.1, 0.0001])
-            high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
-            self.param_space = spaces.Box(low_p, high_p, dtype=np.float32)
-            self.randomize_params()
-            low = np.append(low, low_p)
-            high = np.append(high, high_p)
+        low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.01, 0.01, 0.1, 0.0001])
+        high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
+        self.param_space = spaces.Box(low_p, high_p, dtype=np.float32)
+        low = np.append(low, low_p)
+        high = np.append(high, high_p)
+        self.param_observation_space = spaces.Box(low, high, dtype=np.float32)
+
+        if self.observe_params:
+            self.observation_space = self.param_observation_space
 
         self.action_space = spaces.Box(np.array([-1]), np.array([1]), dtype=np.float32)
-        self.observation_space = spaces.Box(low, high, dtype=np.float32)
 
         self.seed()
         self.viewer = None
@@ -130,7 +132,6 @@ class CartPoleEnv(gym.Env):
         self.L = val[7]
     
     def randomize_params(self):
-        assert(self.randomize)
         self.params = self.param_space.sample()
 
     def step(self, action):
@@ -180,7 +181,7 @@ class CartPoleEnv(gym.Env):
         theta = theta % (2*np.pi)
         if theta >= np.pi:
             theta -= 2*np.pi
-        if self.randomize:
+        if self.observe_params:
             self.state = (x,x_dot,theta,theta_dot, *self.params)
         else:
             self.state = (x,x_dot,theta,theta_dot)
@@ -215,7 +216,7 @@ class CartPoleEnv(gym.Env):
             state[2] = (state[2] + np.pi) % (2*np.pi)
             if state[2] >= np.pi:
                 state[2] -= 2*np.pi
-        if self.randomize:
+        if self.observe_params:
             self.state = np.append(state, self.params)
         else:
             self.state = state
@@ -287,7 +288,7 @@ if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1 and '--motor-test' in sys.argv:
         import matplotlib.pyplot as plt
-        env = CartPoleEnv(swingup=True, randomize=False, motortest=True)
+        env = CartPoleEnv(swingup=True, observe_params=False, motortest=True)
         n = 100
         us = [0.5, 0.75, 1] # * 20V
         for u in us:
@@ -300,7 +301,7 @@ if __name__ == '__main__':
         plt.show()
     else:
         from agents.keyboard_agent import KeyboardAgent as Agent
-        env = CartPoleEnv(swingup=True, randomize=False)
+        env = CartPoleEnv(swingup=True, observe_params=False)
         #env.x_threshold = 20
         agent = Agent()
         memory = []
