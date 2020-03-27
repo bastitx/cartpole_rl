@@ -50,20 +50,32 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=True, observe_params=False):
+    def __init__(self, swingup=True, observe_params=False, motortest=False):
         self.gravity = 9.81
         self.masscart = 1.0 # kg
         self.masspole = 0.1 # kg
         self.total_mass = (self.masspole + self.masscart)
         self.length = 0.5 # actually half the pole's length in meters
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.0 # friction cart
-        self.mu_pole = 0.0003 # friction pole
+        self.mu_cart = 0.9 # friction cart
+        self.mu_pole = 0.03 # friction pole
+
         self.nc_sign = 1
+        self.i = 0 # current
+
+        self.Psi = 0.1 # flux
+        self.R = 1 # resistance
+        self.L = 0.05 # inductance
+        self.radius = 0.02
+        self.J_rotor = 0.017 # moment of inertia of motor
+        self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
+        self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
+        self.J = self.J_rotor # should this be J_rotor + J_load or just J_rotor?
         self.tau = 0.02  # seconds between state updates
 
         self.swingup = swingup
         self.observe_params = observe_params
+        self.motortest = motortest
 
         #add noise?
         #add delay?
@@ -80,8 +92,8 @@ class CartPoleEnv(gym.Env):
         low = -high
         self.observation_space = spaces.Box(low, high)
 
-        low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.01])
-        high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05])
+        low_p = np.array([0.2, 0.05, 0.03, 0.05, 0.000001, 0.01, 0.1, 0.0001])
+        high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
         self.param_space = spaces.Box(low_p, high_p)
         low = np.append(low, low_p)
         high = np.append(high, high_p)
@@ -105,16 +117,19 @@ class CartPoleEnv(gym.Env):
     @property
     def params(self):
         return np.array([self.masscart, self.masspole, self.length, 
-                self.mu_cart, self.mu_pole])
+                self.mu_cart, self.mu_pole, self.Psi, self.R, self.L])
     
     @params.setter
     def params(self, val):
-        assert(len(val) == 5)
+        assert(len(val) == 8)
         self.masscart = val[0]
         self.masspole = val[1]
         self.length = val[2]
         self.mu_cart = val[3]
         self.mu_pole = val[4]
+        self.Psi = val[5]
+        self.R = val[6]
+        self.L = val[7]
     
     def randomize_params(self):
         self.params = self.param_space.sample()
@@ -123,20 +138,29 @@ class CartPoleEnv(gym.Env):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
         x, x_dot, theta, theta_dot, *_ = state
-        force = np.sign(action[0])
+        u = action[0]*80
 
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
 
         def get_thetaacc():
-            temp = (force + self.polemass_length * theta_dot * theta_dot * \
-                (sintheta + self.mu_cart * self.nc_sign * costheta)) / self.total_mass + \
-                self.mu_cart * self.gravity * self.nc_sign
-            return (self.gravity * sintheta - costheta * temp - \
-                self.mu_pole * theta_dot / self.polemass_length) / \
-                (self.length * (4.0/3.0 - self.masspole * costheta / self.total_mass * \
-                (costheta - self.mu_cart * self.nc_sign)))
+            Tm = self.Psi * self.i
+            a = Tm / self.radius + self.polemass_length * theta_dot**2 * sintheta
+            b = self.mu_cart * self.nc_sign * (self.polemass_length * theta_dot**2 * costheta \
+                - self.total_mass * self.gravity)
+            c = self.gravity * sintheta - self.mu_pole * theta_dot / self.polemass_length \
+                + costheta * (- self.polemass_length * theta_dot**2 * (sintheta + \
+                self.mu_cart * self.nc_sign * costheta) / self.total_mass + \
+                self.mu_cart * self.gravity * self.nc_sign)
+            ab = (a + b) / (self.J / self.radius**2 + self.total_mass)
+            return (c - Tm * costheta / (self.radius * self.total_mass) + \
+                ab * self.J * costheta / (self.radius**2 * self.total_mass)) / (self.length * \
+                (4/3 - self.masspole * costheta / self.total_mass * (costheta - self.mu_cart * self.nc_sign \
+                + self.J * (self.mu_cart * self.nc_sign * sintheta - costheta) / \
+                (self.J + self.radius**2 * self.total_mass))))
         
+        i_dot = (-self.Psi * x_dot / self.radius - self.R * self.i + u) / self.L
+
         thetaacc = get_thetaacc()
         nc = self.total_mass * self.gravity - self.polemass_length * \
             (thetaacc * sintheta + theta_dot * theta_dot * costheta)
@@ -145,13 +169,14 @@ class CartPoleEnv(gym.Env):
             self.nc_sign = nc_sign
             thetaacc = get_thetaacc()
 
-        xacc  = (force + self.polemass_length * (theta_dot * theta_dot * sintheta - thetaacc * costheta) - \
-            self.mu_cart * nc * nc_sign) / self.total_mass
+        self.xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
+            self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J / self.radius**2)
 
-        x += self.tau * x_dot
-        x_dot += self.tau * xacc
+        x  += self.tau * x_dot
+        x_dot += self.tau * self.xacc
         theta += self.tau * theta_dot
         theta_dot += self.tau * thetaacc
+        self.i += self.tau * i_dot
 
         theta = theta % (2*np.pi)
         if theta >= np.pi:
@@ -160,6 +185,9 @@ class CartPoleEnv(gym.Env):
             self.state = (x,x_dot,theta,theta_dot, *self.params)
         else:
             self.state = (x,x_dot,theta,theta_dot)
+
+        if self.motortest:
+            return x_dot
 
         done =  x < -self.x_threshold \
                 or x > self.x_threshold
@@ -192,6 +220,8 @@ class CartPoleEnv(gym.Env):
             self.state = np.append(state, self.params)
         else:
             self.state = state
+        self.i = 0
+        self.xacc = 0
         self.steps_beyond_done = None
         return np.array(self.state)
 
@@ -256,29 +286,43 @@ class CartPoleEnv(gym.Env):
 
 if __name__ == '__main__':
     import sys
-    from agents.keyboard_agent import KeyboardAgent as Agent
-    env = CartPoleEnv(swingup=True, observe_params=False)
-    #env.x_threshold = 20
-    agent = Agent()
-    memory = []
-    i = 0
-    state = env.reset()
-    done = False
-    try:
-        while True:
-            env.render()
-            action = agent.act(state)
-            next_state, _, done, _ = env.step(action)
-            memory += [[i, state[0], state[3], action[0]]]
-            state = next_state
-            i += 1
-    except KeyboardInterrupt:
-        env.close()
-        if len(sys.argv) > 1 and '--write-mem' in sys.argv:
-            import csv
-            with open('memory.csv', 'w', newline='') as csvfile:
-                writer = csv.writer(csvfile, delimiter=',')
-                writer.writerow(['i', 'x', 'theta', 'action'])
-                writer.writerows(memory)
-    sys.exit(0)
+    if len(sys.argv) > 1 and '--motor-test' in sys.argv:
+        import matplotlib.pyplot as plt
+        env = CartPoleEnv(swingup=True, observe_params=False, motortest=True)
+        n = 100
+        us = [0.5, 0.75, 1] # * 20V
+        for u in us:
+            env.reset()
+            l = np.zeros(n)
+            for i in range(n):
+                l[i] = env.step([u])
+            plt.plot(np.arange(n)*env.tau, l)
+        #plt.plot(np.arange(n)*m.tau, 10)
+        plt.show()
+    else:
+        from agents.keyboard_agent import KeyboardAgent as Agent
+        env = CartPoleEnv(swingup=True, observe_params=False)
+        #env.x_threshold = 20
+        agent = Agent()
+        memory = []
+        i = 0
+        state = env.reset()
+        done = False
+        try:
+            while True:
+                env.render()
+                action = agent.act(state)
+                next_state, _, done, _ = env.step(action)
+                memory += [[i, state[0], state[3], action[0]]]
+                state = next_state
+                i += 1
+        except KeyboardInterrupt:
+            env.close()
+            if len(sys.argv) > 1 and '--write-mem' in sys.argv:
+                import csv
+                with open('memory.csv', 'w', newline='') as csvfile:
+                    writer = csv.writer(csvfile, delimiter=',')
+                    writer.writerow(['i', 'x', 'theta', 'action'])
+                    writer.writerows(memory)
+        sys.exit(0)
 

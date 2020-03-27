@@ -1,5 +1,5 @@
 import gym
-from sim.cartpole import CartPoleEnv
+from sim.cartpole_dc import CartPoleEnv
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines import PPO2
 

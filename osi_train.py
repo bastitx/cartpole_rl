@@ -1,6 +1,6 @@
 import gym
 from osi import OSI
-from sim.cartpole import CartPoleEnv
+from sim.cartpole_dc import CartPoleEnv
 from model import ActorCriticModel
 import torch
 import sys

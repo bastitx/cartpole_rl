@@ -1,6 +1,6 @@
 import gym
 from agents.ppo_agent import PPOAgent
-from sim.cartpole import CartPoleEnv
+from sim.cartpole_dc import CartPoleEnv
 from model import ActorCriticModel
 import sys
 import argparse

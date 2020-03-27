@@ -1,6 +1,6 @@
 import gym
 from agents.ddpg_agent import DDPGAgent
-from sim.cartpole import CartPoleEnv
+from sim.cartpole_dc import CartPoleEnv
 from model import ActorModel, CriticModel
 import sys
 import argparse
