@@ -59,8 +59,8 @@ class PPOAgent():
         for _ in range(self.epochs):
             for i in range(0, len(self.memory), self.batch_size):
                 logprobs, state_values, dist_entropy = self.policy.evaluate(state_batch[i:i+self.batch_size], action_batch[i:i+self.batch_size])
-                ratios = torch.exp(logprobs - logprob_batch[i:i+self.batch_size].detach())
-                advantages = rewards[i:i+self.batch_size] - state_values.detach()
+                ratios = torch.exp(logprobs - logprob_batch[i:i+self.batch_size])
+                advantages = rewards[i:i+self.batch_size] - state_values
                 # normalize advantages?
                 surr1 = ratios * advantages
                 surr2 = torch.clamp(ratios, 1-self.epsilon, 1+self.epsilon) * advantages
