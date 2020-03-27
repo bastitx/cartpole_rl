@@ -52,7 +52,7 @@ class OSI():
         self.optim.load_state_dict(checkpoint['optim'])
         if memory:
             for m in checkpoint['memory']:
-                self.memory.push(m.state_history, m.action_history, m.actual_mu)
+                self.memory.push(m.osi_state, m.actual_mu)
 
     def save_model(self, output, epoch):
         torch.save({

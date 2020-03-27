@@ -44,8 +44,8 @@ def main():
 		try:
 			osi.load_weights('models', args.resume_episode, args.mode != 'train')
 			print("loaded weights")
-		except Exception:
-			print("Couldn't load weights!")
+		except Exception as e:
+			print("Couldn't load weights! {}".format(e))
 			
 	episode = args.resume_episode
 	last_episode_start = -1
@@ -66,6 +66,9 @@ def main():
 			osi_state = None
 			state = env.reset()
 			last_episode_start = i
+		
+		if args.mode != 'train':
+			env.render()
 
 		if osi_state is not None and episode > 1:
 			mu = osi.predict(osi_state)
@@ -100,7 +103,7 @@ def main():
 
 	env.close()
 	if args.mode == 'train':
-		agent.save_model('models', episode)
+		osi.save_model('models', episode)
 		print("Saved model {}".format(episode))
 
 
