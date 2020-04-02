@@ -1,18 +1,19 @@
 import torch
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 class DCMotorSim():
 	def __init__(self, Model):
-		self.net = Model(5*5, 1)
+		self.net = Model(5*5, 1).to(device)
 	
 	def step(self, state):
 		return self.net(state)
 
 	def train(self, data, env, epochs=80, batch_size=512, lr=0.001):
-		torch.autograd.set_detect_anomaly(True)
 		optim = torch.optim.Adam(self.net.parameters(), lr=lr)
 		states, actions = data
-		states = torch.Tensor(states)
-		actions = torch.Tensor(actions)
+		states = torch.Tensor(states, device=device)
+		actions = torch.Tensor(actions, device=device)
 		for _ in range(epochs):
 			epoch_loss = 0
 			for i in range(batch_size-1, len(states) - 1 - len(states) % batch_size, batch_size):

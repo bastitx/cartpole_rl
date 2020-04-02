@@ -14,6 +14,8 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import torch
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 class CartPoleEnv(gym.Env):
     """
     Description:
@@ -173,7 +175,7 @@ class CartPoleEnv(gym.Env):
             theta_dot_ = theta_dot + self.tau * thetaacc
         elif self.solver == 'rk':
             if isinstance(action, torch.Tensor):
-                y0 = torch.Tensor([x, x_dot, theta, theta_dot]).detach()
+                y0 = torch.Tensor([x, x_dot, theta, theta_dot], device=device).detach()
             else:
                 y0 = np.array([x, x_dot, theta, theta_dot])
             _, xacc, _, thetaacc = self.f(0, y0, force)
