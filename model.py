@@ -134,3 +134,26 @@ class OsiModel(nn.Module):
         out = torch.tanh(self.fc3(out))
         out = self.fc4(out)
         return out
+
+class DCModel(nn.Module):
+    def __init__(self, input_shape, output_shape, init_w=0.003):
+        super().__init__()
+        self.input_shape = input_shape
+        self.output_shape = output_shape
+
+        self.fc1 = nn.Linear(self.input_shape, 100)
+        self.fc2 = nn.Linear(100, 30)
+        self.fc3 = nn.Linear(30, self.output_shape)
+
+        self.init_weights(init_w)
+
+    def init_weights(self, init_w):
+        self.fc1.weight.data.uniform_(-1./np.sqrt(self.input_shape), 1./np.sqrt(self.input_shape))
+        self.fc2.weight.data.uniform_(-1./np.sqrt(100), 1./np.sqrt(100))
+        self.fc3.weight.data.uniform_(-init_w, init_w)
+
+    def forward(self, x):
+        out = F.relu(self.fc1(x))
+        out = F.relu(self.fc2(out))
+        out = torch.tanh(self.fc3(out))
+        return out

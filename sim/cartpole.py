@@ -52,7 +52,7 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=True, observe_params=False, solver='RK23'):
+    def __init__(self, swingup=True, observe_params=False, solver='rk'):
         self.gravity = 9.81
         self.masscart = 0.43 # kg
         self.masspole = 0.05 # kg
@@ -123,7 +123,7 @@ class CartPoleEnv(gym.Env):
         self.params = self.param_space.sample()
 
     
-    def f(self, t, y,force):
+    def f(self, t, y, force):
         x_dot = y[1]
         theta = y[2]
         theta_dot = y[3]
@@ -153,7 +153,10 @@ class CartPoleEnv(gym.Env):
         xacc  = (force + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
             self.mu_cart * nc * nc_sign) / self.total_mass
         
-        return np.array([x_dot, xacc, theta_dot, thetaacc])
+        if isinstance(force, torch.Tensor):
+            return torch.stack([x_dot, xacc, theta_dot, thetaacc])
+        else:
+            return np.array([x_dot, xacc, theta_dot, thetaacc])
 
 
     def step(self, action):
@@ -168,6 +171,17 @@ class CartPoleEnv(gym.Env):
             x_dot_ = x_dot + self.tau * xacc
             theta_ = theta + self.tau * theta_dot
             theta_dot_ = theta_dot + self.tau * thetaacc
+        elif self.solver == 'rk':
+            if isinstance(action, torch.Tensor):
+                y0 = torch.Tensor([x, x_dot, theta, theta_dot]).detach()
+            else:
+                y0 = np.array([x, x_dot, theta, theta_dot])
+            _, xacc, _, thetaacc = self.f(0, y0, force)
+            k1 = self.tau * self.f(0, y0, force)
+            k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, force)
+            k3 = self.tau * self.f(self.tau / 2, y0 + k2 / 2, force)
+            k4 = self.tau * self.f(self.tau, y0 + k3, force)
+            x_, x_dot_, theta_, theta_dot_ = y0 + k1 / 6 + k2 / 3 + k3 / 3 + k4 / 6
         else:
             res = solve_ivp(self.f, (0, self.tau), [x, x_dot, theta, theta_dot], args=[force], method=self.solver, t_eval=[self.tau], atol=1, rtol=1)
             if not res['success']:
@@ -285,7 +299,7 @@ class CartPoleEnv(gym.Env):
 if __name__ == '__main__':
     import sys
     from agents.keyboard_agent import KeyboardAgent as Agent
-    env = CartPoleEnv(swingup=True, observe_params=False, solver='RK23')
+    env = CartPoleEnv(swingup=True, observe_params=False, solver='rk')
     env.mu_cart = 0.1
     env.mu_pole = 0.0015
     env.length = 0.159
