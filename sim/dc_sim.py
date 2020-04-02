@@ -12,14 +12,14 @@ class DCMotorSim():
 	def train(self, data, env, epochs=80, batch_size=512, lr=0.001):
 		optim = torch.optim.Adam(self.net.parameters(), lr=lr)
 		states, actions = data
-		states = torch.Tensor(states, device=device)
-		actions = torch.Tensor(actions, device=device)
+		states = torch.tensor(states, device=device)
+		actions = torch.tensor(actions, device=device)
 		for _ in range(epochs):
 			epoch_loss = 0
 			for i in range(batch_size-1, len(states) - 1 - len(states) % batch_size, batch_size):
 				env.reset()
 				env.state = states[i-1].detach()
-				res = torch.zeros((batch_size, 4))
+				res = torch.zeros((batch_size, 4)).to(device)
 				for j in range(i, i+batch_size):
 					comp_state = torch.cat((states[j-5:j].flatten(), actions[j-5:j]))
 					force = self.step(comp_state)
