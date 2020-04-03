@@ -9,7 +9,9 @@ class DCMotorSim():
 	def step(self, state):
 		return self.net(state)
 
-	def train(self, data, env, epochs=80, batch_size=512, lr=0.001):
+	def train(self, data, env, epochs=80, batch_size=512, lr=0.001, filename=None):
+		if filename != None:
+			self.net.load_state_dict(torch.load(filename, map_location=device))
 		optim = torch.optim.Adam(self.net.parameters(), lr=lr)
 		states, actions = data
 		states = torch.tensor(states, device=device)
@@ -33,6 +35,7 @@ class DCMotorSim():
 				loss.backward(retain_graph=True)
 				optim.step()
 			print("---------------------\nEpoch Loss: {}".format(epoch_loss))
+		torch.save(self.net.state_dict(), "dc_model.pkl")
 
 
 if __name__ == "__main__":
