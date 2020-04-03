@@ -4,7 +4,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class DCMotorSim():
 	def __init__(self, Model, filename=None):
-		self.net = Model(5*5, 1).to(device)
+		self.net = Model(5*5, 1)
 		if filename != None:
 			self.net.load_state_dict(torch.load(filename, map_location=device))
 	
@@ -16,7 +16,7 @@ class DCMotorSim():
 		states, actions = data
 		states = torch.tensor(states, device=device)
 		actions = torch.tensor(actions, device=device)
-		weights = torch.tensor([1, 0, 0, 0], device=device).detach()
+		weights = torch.tensor([1., 0., 0., 0.], device=device).detach()
 		for _ in range(epochs):
 			epoch_loss = 0
 			for i in range(batch_size-1, len(states) - 1 - len(states) % batch_size, batch_size):
