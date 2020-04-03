@@ -3,20 +3,20 @@ import torch
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class DCMotorSim():
-	def __init__(self, Model):
+	def __init__(self, Model, filename=None):
 		self.net = Model(5*5, 1).to(device)
-	
-	def step(self, state):
-		return self.net(state)
-
-	def train(self, data, env, epochs=80, batch_size=512, lr=0.001, filename=None):
 		if filename != None:
 			self.net.load_state_dict(torch.load(filename, map_location=device))
+	
+	def step(self, action):
+		return self.net(torch.tensor(action, device=device).float()).detach().numpy()
+
+	def train(self, data, env, epochs=10, batch_size=512, lr=0.001):
 		optim = torch.optim.Adam(self.net.parameters(), lr=lr)
 		states, actions = data
 		states = torch.tensor(states, device=device)
 		actions = torch.tensor(actions, device=device)
-		weights = torch.tensor([1, 0.1, 0.2, 0.001], device=device).detach()
+		weights = torch.tensor([1, 0, 0, 0], device=device).detach()
 		for _ in range(epochs):
 			epoch_loss = 0
 			for i in range(batch_size-1, len(states) - 1 - len(states) % batch_size, batch_size):
@@ -25,7 +25,7 @@ class DCMotorSim():
 				res = torch.zeros((batch_size, 4)).to(device)
 				for j in range(i, i+batch_size):
 					comp_state = torch.cat((states[j-5:j].flatten(), actions[j-5:j]))
-					force = self.step(comp_state)
+					force = self.net(comp_state)
 					state, *_ = env.step(force)
 					res[j-i] = (states[j].detach() - torch.stack(state)) * weights
 				loss = res.pow(2).mean()
@@ -46,5 +46,5 @@ if __name__ == "__main__":
 	data = read_data('data.csv')
 	env = CartPoleEnv(swingup=False)
 	sim = DCMotorSim(DCModel)
-	sim.train(data, env, 64)
+	sim.train(data, env, 10)
 

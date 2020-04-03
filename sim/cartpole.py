@@ -301,23 +301,34 @@ class CartPoleEnv(gym.Env):
 if __name__ == '__main__':
     import sys
     from agents.keyboard_agent import KeyboardAgent as Agent
+    from sim.dc_sim import DCMotorSim
+    from model import DCModel
     env = CartPoleEnv(swingup=True, observe_params=False, solver='rk')
+    dc = DCMotorSim(DCModel, filename='dc_model.pkl')
     env.mu_cart = 0.1
     env.mu_pole = 0.0015
     env.length = 0.159
     env.masspole = 0.04
     env.masscart = 1.0
     env.tau = 0.02
-    agent = Agent()
+    agent = Agent(1)
     memory = []
     i = 0
     state = env.reset()
+    state_mem = np.zeros((5,4))
+    action_mem = np.zeros(5)
     done = False
     try:
         while True:
             env.render()
             action = agent.act(state)
-            next_state, _, done, _ = env.step(action)
+            state_mem = np.roll(state_mem, -1, axis=0)
+            action_mem = np.roll(action_mem, -1)
+            state_mem[-1] = state
+            action_mem[-1] = action
+            comp_state = np.concatenate((state_mem.flatten(), action_mem))
+            force = dc.step(comp_state)
+            next_state, _, done, _ = env.step(force)
             memory += [[i, state[0], state[3], action[0]]]
             state = next_state
             i += 1
