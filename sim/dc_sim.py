@@ -14,6 +14,7 @@ class DCMotorSim():
 		states, actions = data
 		states = torch.tensor(states, device=device)
 		actions = torch.tensor(actions, device=device)
+		weights = torch.tensor([1, 0.1, 0.2, 0.001], device=device).detach()
 		for _ in range(epochs):
 			epoch_loss = 0
 			for i in range(batch_size-1, len(states) - 1 - len(states) % batch_size, batch_size):
@@ -24,7 +25,7 @@ class DCMotorSim():
 					comp_state = torch.cat((states[j-5:j].flatten(), actions[j-5:j]))
 					force = self.step(comp_state)
 					state, *_ = env.step(force)
-					res[j-i] = states[j].detach() - torch.stack(state)
+					res[j-i] = (states[j].detach() - torch.stack(state)) * weights
 				loss = res.pow(2).mean()
 				print("Loss: {}".format(loss))
 				epoch_loss += loss.detach()
