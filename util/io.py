@@ -13,8 +13,8 @@ def read_data(filename):
         actions = []
         states = []
         for row in reader:
-            x += [(float(row[1]) - 320) / 1000]
-            angle += [float(row[3]) * np.pi / 180]
+            x += [(float(row[1]) - 320) / 1000] # center the 190 position at 0 and convert mm to m
+            angle += [float(row[3]) * np.pi / 180] # angle in radians
             actions += [float(row[5])]
             if angle[i] >= np.pi:
                 angle[i] -= 2 * np.pi

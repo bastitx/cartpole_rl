@@ -145,7 +145,7 @@ class CartPoleEnv(gym.Env):
         nc = self.total_mass * self.gravity - self.polemass_length * \
             (thetaacc * sintheta + theta_dot**2 * costheta)
         if isinstance(force, torch.Tensor):
-            nc_sign = torch.sign(nc * x_dot)
+            nc_sign = torch.sign(nc * x_dot).detach()
         else:
             nc_sign = np.sign(nc * x_dot)
         if nc_sign != self.nc_sign:
@@ -164,7 +164,9 @@ class CartPoleEnv(gym.Env):
     def step(self, action):
         if not isinstance(action, torch.Tensor):
             assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
-        state = self.state
+            state = self.state
+        else:
+            state = self.state.detach()
         x, x_dot, theta, theta_dot, *_ = state
         force = action[0]
         if self.solver == 'euler':
@@ -178,7 +180,6 @@ class CartPoleEnv(gym.Env):
                 y0 = torch.tensor([x, x_dot, theta, theta_dot], device=device).detach()
             else:
                 y0 = np.array([x, x_dot, theta, theta_dot])
-            _, xacc, _, thetaacc = self.f(0, y0, force)
             k1 = self.tau * self.f(0, y0, force)
             k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, force)
             k3 = self.tau * self.f(self.tau / 2, y0 + k2 / 2, force)
@@ -222,6 +223,7 @@ class CartPoleEnv(gym.Env):
             reward = 0.0
         
         if isinstance(action, torch.Tensor):
+            self.state = torch.stack(self.state)
             return self.state, reward, done, {}
         else:
             return np.array(self.state), reward, done, {}
@@ -304,13 +306,8 @@ if __name__ == '__main__':
     from sim.dc_sim import DCMotorSim
     from model import DCModel
     env = CartPoleEnv(swingup=True, observe_params=False, solver='rk')
-    dc = DCMotorSim(DCModel, filename='dc_model.pkl')
-    env.mu_cart = 0.1
-    env.mu_pole = 0.0015
-    env.length = 0.159
-    env.masspole = 0.04
-    env.masscart = 1.0
-    env.tau = 0.02
+    env.x_threshold  = 1
+    dc = DCMotorSim(DCModel, filename='dc_model_old.pkl')
     agent = Agent(1)
     memory = []
     i = 0
