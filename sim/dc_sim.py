@@ -45,6 +45,6 @@ if __name__ == "__main__":
 	from model import DCModel
 	data = read_data('data.csv')
 	sim = DCMotorSim(DCModel, filename='dc_model_old.pkl')
-	env = CartPoleEnv()
+	env = CartPoleEnv(swingup=False)
 	sim.train(data, env, 1, batch_size=512)
 
