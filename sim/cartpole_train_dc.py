@@ -129,8 +129,8 @@ class CartPoleEnv(gym.Env):
         x_dot = y[1]
         theta = y[2]
         theta_dot = y[3]
-        costheta = math.cos(theta)
-        sintheta = math.sin(theta)
+        costheta = torch.cos(theta)
+        sintheta = torch.sin(theta)
 
         def get_thetaacc():
             temp = (-force - self.polemass_length * theta_dot**2 * \
@@ -144,89 +144,47 @@ class CartPoleEnv(gym.Env):
         thetaacc = get_thetaacc()
         nc = self.total_mass * self.gravity - self.polemass_length * \
             (thetaacc * sintheta + theta_dot**2 * costheta)
-        if isinstance(force, torch.Tensor):
-            nc_sign = torch.sign(nc * x_dot).detach()
-        else:
-            nc_sign = np.sign(nc * x_dot)
-        if nc_sign != self.nc_sign:
+        
+        nc_sign = torch.sign(nc * x_dot).detach()
+        if (nc_sign != self.nc_sign).any():
             self.nc_sign = nc_sign
             thetaacc = get_thetaacc()
 
         xacc  = (force + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
             self.mu_cart * nc * nc_sign) / self.total_mass
         
-        if isinstance(force, torch.Tensor):
-            return torch.stack([x_dot, xacc, theta_dot, thetaacc])
-        else:
-            return np.array([x_dot, xacc, theta_dot, thetaacc])
+        return torch.stack([x_dot, xacc, theta_dot, thetaacc])
 
 
     def step(self, action):
-        if not isinstance(action, torch.Tensor):
-            assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
-            state = self.state
-        else:
-            state = self.state.detach()
-        x, x_dot, theta, theta_dot, *_ = state
-        force = action[0]
-        if self.solver == 'euler':
-            _, xacc, _, thetaacc = self.f(0, [x, x_dot, theta, theta_dot], force)
-            x_ = x + self.tau * x_dot
-            x_dot_ = x_dot + self.tau * xacc
-            theta_ = theta + self.tau * theta_dot
-            theta_dot_ = theta_dot + self.tau * thetaacc
-        elif self.solver == 'rk':
-            if isinstance(action, torch.Tensor):
-                y0 = torch.tensor([x, x_dot, theta, theta_dot], device=device).detach()
-            else:
-                y0 = np.array([x, x_dot, theta, theta_dot])
-            k1 = self.tau * self.f(0, y0, force)
-            k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, force)
-            k3 = self.tau * self.f(self.tau / 2, y0 + k2 / 2, force)
-            k4 = self.tau * self.f(self.tau, y0 + k3, force)
-            x_, x_dot_, theta_, theta_dot_ = y0 + k1 / 6 + k2 / 3 + k3 / 3 + k4 / 6
-        else:
-            res = solve_ivp(self.f, (0, self.tau), [x, x_dot, theta, theta_dot], args=[force], method=self.solver, t_eval=[self.tau], atol=1, rtol=1)
-            if not res['success']:
-                raise Exception("Problem in integrator: {}".format(res['message']))
-            else:
-                x_, x_dot_, theta_, theta_dot_ = res['y'][:,-1]
+        assert isinstance(action, torch.Tensor)
+        state = self.state.detach()
+        x, x_dot, theta, theta_dot = state.T
+        force = action[:,0]
+
+        y0 = torch.stack([x, x_dot, theta, theta_dot]).to(device).detach()
+        k1 = self.tau * self.f(0, y0, force)
+        k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, force)
+        k3 = self.tau * self.f(self.tau / 2, y0 + k2 / 2, force)
+        k4 = self.tau * self.f(self.tau, y0 + k3, force)
+        x_, x_dot_, theta_, theta_dot_ = y0 + k1 / 6 + k2 / 3 + k3 / 3 + k4 / 6
 
         theta_ = theta_ % (2 * np.pi)
+        theta_ = torch.where(theta_ >= np.pi, theta_ - 2*np.pi, theta_)
 
-        if theta_ >= np.pi:
-            theta_ = theta_ - 2*np.pi
-        if self.observe_params:
-            self.state = (x_,x_dot_,theta_,theta_dot_, *self.params)
-        else:
-            self.state = (x_,x_dot_,theta_,theta_dot_)
-
-        done =  x < -self.x_threshold \
-                or x > self.x_threshold
+        done =  (x < -self.x_threshold) | (x > self.x_threshold)
         if not self.swingup:
-            done = done or theta < -self.theta_threshold_radians \
-                    or theta > self.theta_threshold_radians
-        done = bool(done)
+            done = done | (theta < -self.theta_threshold_radians) \
+                    | (theta > self.theta_threshold_radians)
 
-        if not done and self.swingup:
-            reward = np.cos(theta)-0.1*x**2-0.1*np.abs(x_dot)+1.6
-        elif not done:
-            reward = 1
-        elif self.steps_beyond_done is None:
-            # Pole just fell!
-            self.steps_beyond_done = 0
-            reward = 0.0
-        else:
-            if self.steps_beyond_done == 0:
-                logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True' -- any further steps are undefined behavior.")
-            self.steps_beyond_done += 1
-            reward = 0.0
+        self.state = torch.stack((x_,x_dot_,theta_,theta_dot_)).T
         
-        if isinstance(action, torch.Tensor):
-            self.state = torch.stack(self.state)
-            return self.state, reward, done, {}
+        if self.swingup:
+            reward = torch.where(~done, torch.cos(theta)-0.1*x**2-0.1*torch.abs(x_dot)+1.6, 0)
         else:
-            return np.array(self.state), reward, done, {}
+            reward = torch.where(~done, torch.ones(done.shape), torch.zeros(done.shape))
+        
+        return self.state, reward, done, {}
 
     def reset(self):
         state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
@@ -234,10 +192,7 @@ class CartPoleEnv(gym.Env):
             state[2] = (state[2] + np.pi) % (2*np.pi)
             if state[2] >= np.pi:
                 state[2] -= 2*np.pi
-        if self.observe_params:
-            self.state = np.append(state, self.params)
-        else:
-            self.state = state
+        self.state = torch.tensor(state).float().detach()
         self.steps_beyond_done = None
         self.nc_sign = 1
         return np.array(self.state)
@@ -325,7 +280,7 @@ if __name__ == '__main__':
             state_mem[-1] = state
             action_mem[-1] = action
             comp_state = np.concatenate((state_mem.flatten(), action_mem))
-            force = dc.step(comp_state)
+            force = torch.tensor(dc.step(comp_state)[None]).detach()
             next_state, _, done, _ = env.step(force)
             memory += [[i, state[0], state[3], action[0]]]
             state = next_state
@@ -339,3 +294,4 @@ if __name__ == '__main__':
                 writer.writerow(['i', 'x', 'theta', 'action'])
                 writer.writerows(memory)
     sys.exit(0)
+

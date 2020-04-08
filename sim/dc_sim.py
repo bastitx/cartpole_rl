@@ -24,16 +24,15 @@ class DCMotorSim():
 			epoch_loss = 0
 			for i in range(5, len(states) - 1 - (len(states) % batch_size), batch_size):
 				env.reset()
-				env.state = states[i-1].detach()
-				res = torch.zeros((batch_size)).to(device)
-				for j in range(i, i+batch_size):
-					comp_state = torch.cat((states[j-5:j].flatten(), actions[j-5:j]))
-					force = self.model(comp_state)
-					state, *_ = env.step(force)
-					state = (state - states_mean) / states_std
-					res[j-i] = (states[j] - state).dot(weights)
+				env.state = states[i-1:i-1+batch_size]
+				res = torch.zeros(batch_size).to(device)
+				comp_state = torch.stack([torch.cat((states[j-5:j].flatten(), actions[j-5:j])) for j in range(i, i + batch_size)])
+				force = self.model(comp_state)
+				state, *_ = env.step(force)
+				state = (state - states_mean) / states_std
+				res = (states[i:i+batch_size] - state).mv(weights)
 				loss = res.pow(2).mean() # try abs() instead of pow(2)
-				print("Loss: {}".format(loss))
+				#print("Loss: {}".format(loss))
 				epoch_loss += loss.detach()
 				optim.zero_grad()
 				loss.backward()
@@ -44,9 +43,9 @@ class DCMotorSim():
 
 if __name__ == "__main__":
 	from util.io import read_data
-	from sim.cartpole import CartPoleEnv
+	from sim.cartpole_train_dc import CartPoleEnv
 	from model import DCModel
 	data = read_data('data.csv')
 	sim = DCMotorSim(DCModel, filename=None)
 	env = CartPoleEnv(swingup=False)
-	sim.train(data, env, 20, batch_size=1)
+	sim.train(data, env, 20, batch_size=128)
