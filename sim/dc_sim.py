@@ -45,10 +45,8 @@ class DCMotorSim():
 if __name__ == "__main__":
 	from util.io import read_data
 	from sim.cartpole import CartPoleEnv
-	import csv
 	from model import DCModel
 	data = read_data('data.csv')
 	sim = DCMotorSim(DCModel, filename=None)
 	env = CartPoleEnv(swingup=False)
 	sim.train(data, env, 20, batch_size=1)
-
