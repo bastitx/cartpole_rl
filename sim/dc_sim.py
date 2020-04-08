@@ -15,6 +15,9 @@ class DCMotorSim():
 		optim = torch.optim.Adam(self.model.parameters(), lr=lr)
 		states, actions = data
 		states = torch.tensor(states, device=device).detach()
+		states_mean = states.mean(0)
+		states_std = states.std(0)
+		states = (states - states_mean) / states_std
 		actions = torch.tensor(actions, device=device).detach()
 		weights = torch.tensor([1., 1., 0., 0.], device=device).detach()
 		for _ in range(epochs):
@@ -27,8 +30,9 @@ class DCMotorSim():
 					comp_state = torch.cat((states[j-5:j].flatten(), actions[j-5:j]))
 					force = self.model(comp_state)
 					state, *_ = env.step(force)
+					state = (state - states_mean) / states_std
 					res[j-i] = (states[j] - state).dot(weights)
-				loss = res.pow(2).mean()
+				loss = res.pow(2).mean() # try abs() instead of pow(2)
 				print("Loss: {}".format(loss))
 				epoch_loss += loss.detach()
 				optim.zero_grad()
@@ -44,7 +48,7 @@ if __name__ == "__main__":
 	import csv
 	from model import DCModel
 	data = read_data('data.csv')
-	sim = DCMotorSim(DCModel, filename='dc_model_old.pkl')
+	sim = DCMotorSim(DCModel, filename=None)
 	env = CartPoleEnv(swingup=False)
-	sim.train(data, env, 1, batch_size=16)
+	sim.train(data, env, 20, batch_size=1)
 

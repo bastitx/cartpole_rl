@@ -307,8 +307,8 @@ if __name__ == '__main__':
     from model import DCModel
     env = CartPoleEnv(swingup=True, observe_params=False, solver='rk')
     env.x_threshold  = 1
-    dc = DCMotorSim(DCModel, filename='dc_model_old.pkl')
-    agent = Agent(1)
+    dc = DCMotorSim(DCModel, filename='dc_model.pkl')
+    agent = Agent(0.9)
     memory = []
     i = 0
     state = env.reset()
