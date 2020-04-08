@@ -15,9 +15,9 @@ class DCMotorSim():
 		optim = torch.optim.Adam(self.model.parameters(), lr=lr)
 		states, actions = data
 		states = torch.tensor(states, device=device).detach()
-		states_mean = states.mean(0)
-		states_std = states.std(0)
-		states = (states - states_mean) / states_std
+		#states_mean = states.mean(0)
+		#states_std = states.std(0)
+		#states = (states - states_mean) / states_std
 		actions = torch.tensor(actions, device=device).detach()
 		weights = torch.tensor([1., 1., 0., 0.], device=device).detach()
 		for _ in range(epochs):
@@ -29,7 +29,7 @@ class DCMotorSim():
 				comp_state = torch.stack([torch.cat((states[j-5:j].flatten(), actions[j-5:j])) for j in range(i, i + batch_size)])
 				force = self.model(comp_state)
 				state, *_ = env.step(force)
-				state = (state - states_mean) / states_std
+				#state = (state - states_mean) / states_std
 				res = (states[i:i+batch_size] - state).mv(weights)
 				loss = res.pow(2).mean() # try abs() instead of pow(2)
 				#print("Loss: {}".format(loss))

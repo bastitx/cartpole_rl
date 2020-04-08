@@ -182,7 +182,7 @@ class CartPoleEnv(gym.Env):
         if self.swingup:
             reward = torch.where(~done, torch.cos(theta)-0.1*x**2-0.1*torch.abs(x_dot)+1.6, 0)
         else:
-            reward = torch.where(~done, torch.ones(done.shape), torch.zeros(done.shape))
+            reward = torch.where(~done, torch.ones(done.shape).to(device), torch.zeros(done.shape).to(device))
         
         return self.state, reward, done, {}
 
