@@ -306,20 +306,23 @@ if __name__ == '__main__':
     from agents.keyboard_agent import KeyboardAgent as Agent
     from sim.dc_sim import DCMotorSim
     from model import DCModel
+    from util.io import read_data
     env = CartPoleEnv(swingup=True, observe_params=False, solver='rk')
-    env.x_threshold  = 1
+    env.x_threshold = 0.5
     dc = DCMotorSim(DCModel, filename='dc_model.pkl')
-    agent = Agent(0.9)
+    agent = Agent(1)
     memory = []
+    _, actions = read_data('data.csv')
+    actions = np.array(actions)[:,None]
     i = 0
     state = env.reset()
     state_mem = np.zeros((5,4))
     action_mem = np.zeros(5)
     done = False
     try:
-        while True:
+        for action in actions:
             env.render()
-            action = agent.act(state)
+            #action = agent.act(state)
             state_mem = np.roll(state_mem, -1, axis=0)
             action_mem = np.roll(action_mem, -1)
             state_mem[-1] = state
