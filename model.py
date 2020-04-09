@@ -136,26 +136,29 @@ class OsiModel(nn.Module):
         return out
 
 class DCModel(nn.Module):
-    def __init__(self, input_shape, output_shape, init_w=0.003, p=0.2):
+    def __init__(self, input_shape, output_shape, init_w=0.003, p=0.00):
         super().__init__()
         self.input_shape = input_shape
         self.output_shape = output_shape
 
-        self.fc1 = nn.Linear(self.input_shape, 100)
-        self.fc2 = nn.Linear(100, 30)
-        self.fc3 = nn.Linear(30, self.output_shape)
+        self.fc1 = nn.Linear(self.input_shape, 400)
+        self.fc2 = nn.Linear(400, 300)
+        self.fc3 = nn.Linear(300, 100)
+        self.fc4 = nn.Linear(100, self.output_shape)
         self.dropout = nn.Dropout(p)
 
         self.init_weights(init_w)
 
     def init_weights(self, init_w):
         self.fc1.weight.data.uniform_(-1./np.sqrt(self.input_shape), 1./np.sqrt(self.input_shape))
-        self.fc2.weight.data.uniform_(-1./np.sqrt(100), 1./np.sqrt(100))
-        self.fc3.weight.data.uniform_(-init_w, init_w)
+        self.fc2.weight.data.uniform_(-1./np.sqrt(400), 1./np.sqrt(400))
+        self.fc3.weight.data.uniform_(-1./np.sqrt(300), 1./np.sqrt(300))
+        self.fc4.weight.data.uniform_(-init_w, init_w)
 
     def forward(self, x):
         out = F.relu(self.fc1(x))
         out = F.relu(self.fc2(out))
         out = self.dropout(out)
-        out = torch.tanh(self.fc3(out)) * 10
+        out = F.relu(self.fc3(out))
+        out = torch.tanh(self.fc4(out)) * 10
         return out

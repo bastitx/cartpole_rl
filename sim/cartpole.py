@@ -321,7 +321,7 @@ if __name__ == '__main__':
     done = False
     try:
         for action in actions:
-            env.render()
+            #env.render()
             #action = agent.act(state)
             state_mem = np.roll(state_mem, -1, axis=0)
             action_mem = np.roll(action_mem, -1)
@@ -334,6 +334,8 @@ if __name__ == '__main__':
             state = next_state
             i += 1
     except KeyboardInterrupt:
+        print("keyboard")
+    finally:
         env.close()
         if len(sys.argv) > 1 and '--write-mem' in sys.argv:
             import csv
