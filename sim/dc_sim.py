@@ -12,7 +12,10 @@ class DCMotorSim():
 	def step(self, action):
 		return self.model(torch.tensor(action, device=device).float()).detach().numpy()
 
-	def train(self, data, env, epochs=10, batch_size=512, lr=0.001):
+	def train(self, data, env, epochs=10, batch_size=512, mini_batch_size=None, lr=0.001):
+		assert(mini_batch_size == None or (batch_size % mini_batch_size == 0 and mini_batch_size < batch_size))
+		if mini_batch_size == None:
+			mini_batch_size == batch_size
 		self.model.train()
 		optim = torch.optim.Adam(self.model.parameters(), lr=lr)
 		states, actions = data
@@ -33,12 +36,17 @@ class DCMotorSim():
 				state, *_ = env.step(force)
 				state = (state - states_mean) / states_std
 				res = (states[i:i+batch_size] - state).mv(weights)
-				loss = res.pow(2).mean() # try abs() instead of pow(2)
-				#print("Loss: {}".format(loss))
-				epoch_loss += [loss.detach()]
-				optim.zero_grad()
-				loss.backward()
-				optim.step()
+				for j in range(batch_size // mini_batch_size):
+					loss = res[j*mini_batch_size:(j+1)*mini_batch_size].pow(2).mean() # try abs() instead of pow(2)
+					#print("Loss: {}".format(loss))
+					epoch_loss += [loss.detach()]
+					optim.zero_grad()
+					if j == batch_size // mini_batch_size - 1:
+						loss.backward()
+					else:
+						loss.backward(retain_graph=True)
+					optim.step()
+				
 			print("---------------------\nMean Epoch Loss: {}".format(sum(epoch_loss)/len(epoch_loss)))
 		torch.save(self.model.state_dict(), "dc_model.pkl")
 
@@ -50,4 +58,4 @@ if __name__ == "__main__":
 	data = read_data('data.csv')
 	sim = DCMotorSim(DCModel, filename=None)
 	env = CartPoleEnv(swingup=False)
-	sim.train(data, env, 1000, batch_size=128)
+	sim.train(data, env, 1000, batch_size=512, mini_batch_size=16)
