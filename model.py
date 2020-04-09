@@ -160,5 +160,5 @@ class DCModel(nn.Module):
         out = F.relu(self.fc2(out))
         out = self.dropout(out)
         out = F.relu(self.fc3(out))
-        out = torch.tanh(self.fc4(out)) * 10
+        out = torch.tanh(self.fc4(out)) * 100
         return out

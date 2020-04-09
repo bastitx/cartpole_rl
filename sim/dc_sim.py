@@ -47,7 +47,7 @@ class DCMotorSim():
 						loss.backward(retain_graph=True)
 					optim.step()
 				
-			print("---------------------\nMean Epoch Loss: {}".format(sum(epoch_loss)/len(epoch_loss)))
+			print("---------------------\nMean Episode Loss: {}".format(sum(epoch_loss)/len(epoch_loss)))
 		torch.save(self.model.state_dict(), "dc_model.pkl")
 
 
