@@ -5,6 +5,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class DCMotorSim():
 	def __init__(self, Model, filename=None):
 		self.model = Model(5*5, 1).to(device)
+		self.model.eval()
 		if filename != None:
 			self.model.load_state_dict(torch.load(filename, map_location=device))
 	
@@ -12,6 +13,7 @@ class DCMotorSim():
 		return self.model(torch.tensor(action, device=device).float()).detach().numpy()
 
 	def train(self, data, env, epochs=10, batch_size=512, lr=0.001):
+		self.model.train()
 		optim = torch.optim.Adam(self.model.parameters(), lr=lr)
 		states, actions = data
 		states = torch.tensor(states, device=device).detach()
@@ -19,7 +21,7 @@ class DCMotorSim():
 		states_std = states.std(0)
 		states = (states - states_mean) / states_std
 		actions = torch.tensor(actions, device=device).detach()
-		weights = torch.tensor([1., 0.5, 0.02, 0.0001], device=device).detach()
+		weights = torch.tensor([1., 0.25, 0.2, 0.0004], device=device).detach()
 		for _ in range(epochs):
 			epoch_loss = []
 			for i in range(5, len(states) - 1 - (len(states) % batch_size), batch_size):
