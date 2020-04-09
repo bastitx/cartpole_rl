@@ -58,4 +58,4 @@ if __name__ == "__main__":
 	data = read_data('data.csv')
 	sim = DCMotorSim(DCModel, filename=None)
 	env = CartPoleEnv(swingup=False)
-	sim.train(data, env, 1000, batch_size=512, mini_batch_size=16)
+	sim.train(data, env, 100, batch_size=128)
