@@ -31,7 +31,7 @@ class DCMotorSim():
 				state, *_ = env.step(force)
 				state = (state - states_mean) / states_std
 				res = (states[i:i+batch_size] - state).mv(weights)
-				loss = res.pow(2)().mean() # try abs() instead of pow(2)
+				loss = res.pow(2).mean() # try abs() instead of pow(2)
 				#print("Loss: {}".format(loss))
 				epoch_loss += [loss.detach()]
 				optim.zero_grad()
