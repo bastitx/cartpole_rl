@@ -15,7 +15,7 @@ class DCMotorSim():
 	def train(self, data, env, epochs=10, batch_size=512, mini_batch_size=None, lr=0.001):
 		assert(mini_batch_size == None or (batch_size % mini_batch_size == 0 and mini_batch_size < batch_size))
 		if mini_batch_size == None:
-			mini_batch_size == batch_size
+			mini_batch_size = batch_size
 		self.model.train()
 		optim = torch.optim.Adam(self.model.parameters(), lr=lr)
 		states, actions = data
