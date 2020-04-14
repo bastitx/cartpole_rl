@@ -95,7 +95,7 @@ class CartPoleEnv(gym.Env):
         if self.observe_params:
             self.observation_space = self.param_observation_space
 
-        self.action_space = spaces.Box(np.array([-10]), np.array([10]))
+        self.action_space = spaces.Box(np.array([-100]), np.array([100]))
 
         self.seed()
         self.viewer = None
