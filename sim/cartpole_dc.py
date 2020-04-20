@@ -54,26 +54,26 @@ class CartPoleEnv(gym.Env):
     }
 
     def __init__(self, swingup=True, observe_params=False, motortest=False, solver='rk'):
-        self.gravity = 9.81
-        self.masscart = 0.43 # kg
-        self.masspole = 0.05 # kg
+        self.gravity = 9.81 
+        self.masscart = 0.43 # kg measured
+        self.masspole = 0.05 # kg measured
         self.total_mass = (self.masspole + self.masscart)
-        self.length = 0.13 # actually half the pole's length in meters
+        self.length = 0.13 # actually half the pole's length in meters; measured
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.00469 # friction cart 
-        self.mu_pole = 0.0003 # friction pole
+        self.mu_cart = 0.000551 # friction cart 
+        self.mu_pole = 0.0003 # friction pole; approximated from measurements
         self.nc_sign = 1
         self.tau = 0.02 # seconds between state updates
         
         self.i = 0 # current
-        self.Psi = 2.68 # flux
-        self.R = 20 # resistance
-        self.L = 0.093 # inductance
+        self.Psi = 1.88 # flux
+        self.R = 20 # resistance measured
+        self.L = 0.822 # inductance
         self.radius = 0.02
         self.J_rotor = 0.017 # moment of inertia of motor
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
         self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
-        self.J = 0.156 #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
+        self.J = 0.0106 #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
         
         self.solver = solver
         self.swingup = swingup
@@ -305,7 +305,7 @@ if __name__ == '__main__':
         from agents.keyboard_agent import KeyboardAgent as Agent
         env = CartPoleEnv(swingup=True, observe_params=False)
         #env.x_threshold = 20
-        agent = Agent(0.9)
+        agent = Agent(0.8)
         memory = []
         i = 0
         state = env.reset()

@@ -308,9 +308,9 @@ if __name__ == '__main__':
     from model import DCModel
     from util.io import read_data
     env = CartPoleEnv(swingup=True, observe_params=False, solver='rk')
-    env.x_threshold = 0.5
-    dc = DCMotorSim(DCModel, filename='dc_model.pkl')
-    agent = Agent(1)
+    env.x_threshold = 0.4
+    dc = DCMotorSim(DCModel, filename='dc_model_old.pkl')
+    agent = Agent(1.0)
     memory = []
     states, actions = read_data('data.csv')
     states = torch.tensor(states).detach()
@@ -319,20 +319,26 @@ if __name__ == '__main__':
     actions = np.array(actions)[:,None]
     i = 0
     state = env.reset()
+    env.state = states[0]
+    state = env.state
     state_mem = np.zeros((5,4))
     action_mem = np.zeros(5)
     done = False
     try:
-        for action in actions:
+        #for action in actions:
+        while True:
             env.render()
-            state = (state - states_mean) / states_std
-            #action = agent.act(state)
+            #state = (state - states_mean) / states_std
+            action = agent.act(state)
             state_mem = np.roll(state_mem, -1, axis=0)
             action_mem = np.roll(action_mem, -1)
             state_mem[-1] = state
             action_mem[-1] = action
-            comp_state = np.concatenate((state_mem.flatten(), action_mem))
-            force = dc.step(comp_state)
+            if i >= 5:
+                comp_state = np.concatenate((state_mem.flatten(), action_mem))
+                force = dc.step(comp_state)
+            else:
+                force = np.array([0])
             next_state, _, done, _ = env.step(force)
             memory += [[i, state[0], state[3], action[0]]]
             state = next_state
