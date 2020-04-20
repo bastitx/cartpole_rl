@@ -11,6 +11,9 @@ import gym
 from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
+import torch
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class CartPoleEnv(gym.Env):
     """
@@ -50,29 +53,29 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=True, observe_params=False, motortest=False):
+    def __init__(self, swingup=True, observe_params=False, motortest=False, solver='rk'):
         self.gravity = 9.81
-        self.masscart = 1.0 # kg
-        self.masspole = 0.1 # kg
+        self.masscart = 0.43 # kg
+        self.masspole = 0.05 # kg
         self.total_mass = (self.masspole + self.masscart)
-        self.length = 0.5 # actually half the pole's length in meters
+        self.length = 0.13 # actually half the pole's length in meters
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.9 # friction cart
-        self.mu_pole = 0.03 # friction pole
-
+        self.mu_cart = 0.1 # friction cart 
+        self.mu_pole = 0.0003 # friction pole
         self.nc_sign = 1
+        self.tau = 0.02 # seconds between state updates
+        
         self.i = 0 # current
-
-        self.Psi = 0.1 # flux
-        self.R = 1 # resistance
-        self.L = 0.05 # inductance
+        self.Psi = 0.4 # flux
+        self.R = 0.5 # resistance
+        self.L = 0.1 # inductance
         self.radius = 0.02
         self.J_rotor = 0.017 # moment of inertia of motor
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
         self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
-        self.J = self.J_rotor # should this be J_rotor + J_load or just J_rotor?
-        self.tau = 0.02  # seconds between state updates
-
+        self.J = 0.02 #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
+        
+        self.solver = solver
         self.swingup = swingup
         self.observe_params = observe_params
         self.motortest = motortest
@@ -82,7 +85,7 @@ class CartPoleEnv(gym.Env):
 
         # Angle at which to fail the episode if swingup != False
         self.theta_threshold_radians = 0.21
-        self.x_threshold = 2.4 # length of tracks in meters
+        self.x_threshold = 0.2 # length of tracks in meters
 
         high = np.array([self.x_threshold,
                          np.finfo(np.float32).max,
@@ -92,7 +95,7 @@ class CartPoleEnv(gym.Env):
         low = -high
         self.observation_space = spaces.Box(low, high)
 
-        low_p = np.array([0.2, 0.05, 0.03, 0.05, 0.000001, 0.01, 0.1, 0.0001])
+        low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.000001, 0.01, 0.1, 0.0001])
         high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
         self.param_space = spaces.Box(low_p, high_p)
         low = np.append(low, low_p)
@@ -102,7 +105,7 @@ class CartPoleEnv(gym.Env):
         if self.observe_params:
             self.observation_space = self.param_observation_space
 
-        self.action_space = spaces.Box(np.array([-1]), np.array([1]))
+        self.action_space = spaces.Box(np.array([-30]), np.array([30]))
 
         self.seed()
         self.viewer = None
@@ -133,18 +136,17 @@ class CartPoleEnv(gym.Env):
     
     def randomize_params(self):
         self.params = self.param_space.sample()
-
-    def step(self, action):
-        assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
-        state = self.state
-        x, x_dot, theta, theta_dot, *_ = state
-        u = action[0]*80
-
-        costheta = math.cos(theta)
-        sintheta = math.sin(theta)
+    
+    def f(self, t, y, u):
+        x_dot = y[1]
+        theta = y[2]
+        theta_dot = y[3]
+        i = y[4]
+        costheta = torch.cos(theta)
+        sintheta = torch.sin(theta)
 
         def get_thetaacc():
-            Tm = self.Psi * self.i
+            Tm = self.Psi * i
             a = Tm / self.radius + self.polemass_length * theta_dot**2 * sintheta
             b = self.mu_cart * self.nc_sign * (self.polemass_length * theta_dot**2 * costheta \
                 - self.total_mass * self.gravity)
@@ -159,56 +161,58 @@ class CartPoleEnv(gym.Env):
                 + self.J * (self.mu_cart * self.nc_sign * sintheta - costheta) / \
                 (self.J + self.radius**2 * self.total_mass))))
         
-        i_dot = (-self.Psi * x_dot / self.radius - self.R * self.i + u) / self.L
+        i_dot = (-self.Psi * x_dot / self.radius - self.R * i + u) / self.L
 
         thetaacc = get_thetaacc()
         nc = self.total_mass * self.gravity - self.polemass_length * \
             (thetaacc * sintheta + theta_dot * theta_dot * costheta)
-        nc_sign = np.sign(nc * x_dot)
-        if nc_sign != self.nc_sign:
+
+        nc_sign = torch.sign(nc * x_dot).detach()
+        if (nc_sign != self.nc_sign).any():
             self.nc_sign = nc_sign
             thetaacc = get_thetaacc()
 
-        self.xacc = (self.Psi * self.i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
+        xacc = (self.Psi * i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
             self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J / self.radius**2)
+        return torch.stack([x_dot, xacc, theta_dot, thetaacc, i_dot])
 
-        x  += self.tau * x_dot
-        x_dot += self.tau * self.xacc
-        theta += self.tau * theta_dot
-        theta_dot += self.tau * thetaacc
-        self.i += self.tau * i_dot
+    def step(self, action):
+        assert isinstance(action, torch.Tensor)
+        state = self.state.detach()
+        x, x_dot, theta, theta_dot, *_ = state.T
+        u = action[:,0]
+        y0 = torch.stack([x, x_dot, theta, theta_dot, self.i]).to(device).detach()
+        k1 = self.tau * self.f(0, y0, u)
+        k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, u)
+        k3 = self.tau * self.f(self.tau / 2, y0 + k2 / 2, u)
+        k4 = self.tau * self.f(self.tau, y0 + k3, u)
+        x_, x_dot_, theta_, theta_dot_, i_ = y0 + k1 / 6 + k2 / 3 + k3 / 3 + k4 / 6
 
-        theta = theta % (2*np.pi)
-        if theta >= np.pi:
-            theta -= 2*np.pi
+        theta_ = theta_ % (2 * np.pi)
+        theta_ = torch.where(theta_ >= np.pi, theta_ - 2*np.pi, theta_)
+        self.i = i_
+
         if self.observe_params:
-            self.state = (x,x_dot,theta,theta_dot, *self.params)
+            self.state = (x_ , x_dot_, theta_, theta_dot_, *self.params)
         else:
-            self.state = (x,x_dot,theta,theta_dot)
+            self.state = (x_, x_dot_, theta_, theta_dot_)
+        self.state = torch.stack(self.state).T
 
         if self.motortest:
             return x_dot
 
-        done =  x < -self.x_threshold \
-                or x > self.x_threshold
+        done =  (x < -self.x_threshold) | (x > self.x_threshold)
         if not self.swingup:
-            done = done or theta < -self.theta_threshold_radians \
-                    or theta > self.theta_threshold_radians
-        done = bool(done)
+            done = done | (theta < -self.theta_threshold_radians) \
+                    | (theta > self.theta_threshold_radians)
 
-        if not done:
-            reward = np.cos(theta)-0.1*x**2-0.1*np.abs(x_dot)+1.6
-        elif self.steps_beyond_done is None:
-            # Pole just fell!
-            self.steps_beyond_done = 0
-            reward = 0.0
+        if self.swingup:
+            reward = torch.where(~done, torch.cos(theta)-0.1*x**2-0.1*torch.abs(x_dot)+1.6, torch.zeros(done.shape).to(device))
         else:
-            if self.steps_beyond_done == 0:
-                logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True' -- any further steps are undefined behavior.")
-            self.steps_beyond_done += 1
-            reward = 0.0
+            reward = torch.where(~done, torch.ones(done.shape).to(device), torch.zeros(done.shape).to(device))
+        
 
-        return np.array(self.state), reward, done, {}
+        return self.state, reward, done, {}
 
     def reset(self):
         state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
@@ -217,13 +221,11 @@ class CartPoleEnv(gym.Env):
             if state[2] >= np.pi:
                 state[2] -= 2*np.pi
         if self.observe_params:
-            self.state = np.append(state, self.params)
-        else:
-            self.state = state
-        self.i = 0
-        self.xacc = 0
-        self.steps_beyond_done = None
-        return np.array(self.state)
+            state = np.append(state, self.params)
+        self.state = torch.tensor([state]).float().detach()
+        self.i = torch.tensor([0.])
+        self.nc_sign = 1
+        return self.state
 
     def render(self, mode='human'):
         screen_width = 600
@@ -271,7 +273,7 @@ class CartPoleEnv(gym.Env):
         l,r,t,b = -polewidth/2,polewidth/2,polelen-polewidth/2,-polewidth/2
         pole.v = [(l,b), (l,t), (r,t), (r,b)]
 
-        x = self.state
+        x = self.state[0]
         cartx = x[0]*scale+screen_width/2.0 # MIDDLE OF CART
         self.carttrans.set_translation(cartx, carty)
         self.poletrans.set_rotation(-x[2])
@@ -303,7 +305,7 @@ if __name__ == '__main__':
         from agents.keyboard_agent import KeyboardAgent as Agent
         env = CartPoleEnv(swingup=True, observe_params=False)
         #env.x_threshold = 20
-        agent = Agent()
+        agent = Agent(0.9)
         memory = []
         i = 0
         state = env.reset()
@@ -311,9 +313,9 @@ if __name__ == '__main__':
         try:
             while True:
                 env.render()
-                action = agent.act(state)
+                action = torch.tensor([agent.act(state)]).float()
                 next_state, _, done, _ = env.step(action)
-                memory += [[i, state[0], state[3], action[0]]]
+                #memory += [[i, state[0], state[3], action[0]]]
                 state = next_state
                 i += 1
         except KeyboardInterrupt:

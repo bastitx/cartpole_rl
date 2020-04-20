@@ -66,7 +66,6 @@ class CartPoleEnv(gym.Env):
         self.nc_sign = 1
         self.tau = 0.02 # seconds between state updates
         self.solver = solver
-
         self.swingup = swingup
         self.observe_params = observe_params
 
