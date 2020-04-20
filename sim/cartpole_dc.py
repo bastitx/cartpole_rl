@@ -60,20 +60,20 @@ class CartPoleEnv(gym.Env):
         self.total_mass = (self.masspole + self.masscart)
         self.length = 0.13 # actually half the pole's length in meters; measured
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.000551 # friction cart 
+        self.mu_cart = 0.0305 # friction cart 
         self.mu_pole = 0.0003 # friction pole; approximated from measurements
         self.nc_sign = 1
         self.tau = 0.02 # seconds between state updates
         
         self.i = 0 # current
-        self.Psi = 1.88 # flux
+        self.Psi = 2.253 # flux
         self.R = 20 # resistance measured
-        self.L = 0.822 # inductance
+        self.L = 1.059 # inductance
         self.radius = 0.02
         self.J_rotor = 0.017 # moment of inertia of motor
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
         self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
-        self.J = 0.0106 #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
+        self.J = 0.0111 #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
         
         self.solver = solver
         self.swingup = swingup
