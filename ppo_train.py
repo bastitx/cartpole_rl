@@ -74,7 +74,7 @@ def main():
 		action, logprob = agent.act(state)
 		next_state, reward, done, _ = env.step(action)
 		episode_reward += reward
-		agent.remember([state], [action], [logprob], [next_state], [reward], [done])
+		agent.remember(state, action, logprob, next_state, reward, done)
 
 		if args.mode == 'train' and i % args.memory_size == 0 and i > 0:
 			avg_loss = agent.update()

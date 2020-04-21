@@ -39,8 +39,8 @@ class PPOAgent():
         state_batch = torch.cat(batch.state)
         action_batch = torch.cat(batch.action)
         logprob_batch = torch.cat(batch.logprob).squeeze(1)
-        reward_batch = torch.cat(batch.reward)
-        done_batch = torch.cat(batch.done)
+        reward_batch = torch.cat(batch.reward).cpu().numpy()
+        done_batch = torch.cat(batch.done).cpu().numpy()
 
         rewards = []
         discounted_reward = 0
