@@ -207,7 +207,7 @@ class CartPoleEnv(gym.Env):
                     | (theta > self.theta_threshold_radians)
 
         if self.swingup:
-            reward = torch.where(~done, 10 - theta**2 + torch.log(theta**2 + 0.1) - 0.2 * torch.abs(x), torch.zeros(done.shape).to(device))
+            reward = torch.where(~done, 10 - theta**2 - torch.log(theta**2 + 0.1) - 0.2 * torch.abs(x), torch.zeros(done.shape).to(device))
         else:
             reward = torch.where(~done, torch.ones(done.shape).to(device), torch.zeros(done.shape).to(device))
         
