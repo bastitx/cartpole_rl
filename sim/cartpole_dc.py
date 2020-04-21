@@ -60,20 +60,22 @@ class CartPoleEnv(gym.Env):
         self.total_mass = (self.masspole + self.masscart)
         self.length = 0.13 # actually half the pole's length in meters; measured
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.0305 # friction cart 
+        self.mu_cart = 0.0005 # friction cart; not that important because of motor brake?
         self.mu_pole = 0.0003 # friction pole; approximated from measurements
         self.nc_sign = 1
         self.tau = 0.02 # seconds between state updates
         
         self.i = 0 # current
-        self.Psi = 2.253 # flux
+        self.Psi = 3.357 # flux
         self.R = 20 # resistance measured
-        self.L = 1.059 # inductance
+        self.L = 0.3837 # inductance
         self.radius = 0.02
         self.J_rotor = 0.017 # moment of inertia of motor
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
         self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
-        self.J = 0.0111 #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
+        self.J = self.J_rotor #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
+        self.max_voltage = 19.36
+        self.transform_factor = 1.5
         
         self.solver = solver
         self.swingup = swingup
@@ -105,7 +107,7 @@ class CartPoleEnv(gym.Env):
         if self.observe_params:
             self.observation_space = self.param_observation_space
 
-        self.action_space = spaces.Box(np.array([-30]), np.array([30]))
+        self.action_space = spaces.Box(np.array([-1]), np.array([1]))
 
         self.seed()
         self.viewer = None
@@ -180,7 +182,7 @@ class CartPoleEnv(gym.Env):
         assert isinstance(action, torch.Tensor)
         state = self.state.detach()
         x, x_dot, theta, theta_dot, *_ = state.T
-        u = action[:,0] * 30
+        u = torch.sign(action[:,0]) * (torch.abs(action[:,0]) * self.max_voltage)**self.transform_factor
         y0 = torch.stack([x, x_dot, theta, theta_dot, self.i]).to(device).detach()
         k1 = self.tau * self.f(0, y0, u)
         k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, u)
@@ -199,15 +201,15 @@ class CartPoleEnv(gym.Env):
         self.state = torch.stack(self.state).T
 
         if self.motortest:
-            return x_dot
+            return x_dot_
 
-        done =  (x < -self.x_threshold) | (x > self.x_threshold)
+        done =  (x_ < -self.x_threshold) | (x_ > self.x_threshold)
         if not self.swingup:
-            done = done | (theta < -self.theta_threshold_radians) \
-                    | (theta > self.theta_threshold_radians)
+            done = done | (theta_ < -self.theta_threshold_radians) \
+                    | (theta_ > self.theta_threshold_radians)
 
         if self.swingup:
-            reward = torch.where(~done, 10 - theta**2 - torch.log(theta**2 + 0.1) - 0.2 * torch.abs(x), torch.zeros(done.shape).to(device))
+            reward = torch.where(~done, 10 - theta_**2 - torch.log(theta_**2 + 0.1) - 0.2 * torch.abs(x_), torch.zeros(done.shape).to(device))
         else:
             reward = torch.where(~done, torch.ones(done.shape).to(device), torch.zeros(done.shape).to(device))
         
@@ -305,7 +307,7 @@ if __name__ == '__main__':
         from agents.keyboard_agent import KeyboardAgent as Agent
         env = CartPoleEnv(swingup=True, observe_params=False)
         #env.x_threshold = 20
-        agent = Agent(0.8)
+        agent = Agent(1.0)
         memory = []
         i = 0
         state = env.reset()
