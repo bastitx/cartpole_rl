@@ -36,11 +36,11 @@ class PPOAgent():
         assert(len(self.memory) > 0 and len(self.memory) % self.batch_size == 0)
         
         batch = Transition_PPO(*zip(*self.memory.memory))
-        state_batch = torch.tensor(np.concatenate(batch.state), device=device).float().detach()
-        action_batch = torch.tensor(np.concatenate(batch.action), device=device).float().detach()
-        logprob_batch = torch.tensor(np.concatenate(batch.logprob), device=device).squeeze(1).float().detach()
-        reward_batch = np.concatenate(batch.reward)
-        done_batch = np.concatenate(batch.done)
+        state_batch = torch.cat(batch.state)
+        action_batch = torch.cat(batch.action)
+        logprob_batch = torch.cat(batch.logprob).squeeze(1)
+        reward_batch = torch.cat(batch.reward)
+        done_batch = torch.cat(batch.done)
 
         rewards = []
         discounted_reward = 0
