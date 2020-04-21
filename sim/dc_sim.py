@@ -4,7 +4,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class DCMotorSim():
     def __init__(self, Model, filename=None):
-        self.model = Model(5*5, 1).to(device)
+        self.model = Model(5*5, 1, p=0.1).to(device)
         self.model.eval()
         if filename != None:
             self.model.load_state_dict(torch.load(filename, map_location=device))
@@ -35,7 +35,7 @@ class DCMotorSim():
                 force = self.model(comp_state)
                 state, *_ = env.step(force)
                 #state = (state - states_mean) / states_std
-                res = (states[i:i+batch_size] - state).pow(2).mv(weights)
+                res = (states[i:i+batch_size] - state).mv(weights).pow(2)
                 for j in range(batch_size // mini_batch_size):
                     loss = res[j*mini_batch_size:(j+1)*mini_batch_size].mean() # try abs() instead of pow(2)
                     #print("Loss: {}".format(loss))
