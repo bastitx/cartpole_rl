@@ -208,12 +208,8 @@ class CartPoleEnv(gym.Env):
             done = done | (theta_ < -self.theta_threshold_radians) \
                     | (theta_ > self.theta_threshold_radians)
 
-        if self.swingup:
-            reward = torch.where(~done, 10 - theta_**2 - torch.log(theta_**2 + 0.1) - 0.2 * torch.abs(x_), torch.zeros(done.shape).to(device))
-        else:
-            reward = torch.where(~done, torch.ones(done.shape).to(device), torch.zeros(done.shape).to(device))
+        reward = torch.where(~done, 10 - theta_**2 - torch.log(theta_**2 + 0.1) - 0.2 * torch.abs(x_), torch.zeros(done.shape).to(device))
         
-
         return self.state, reward, done, {}
 
     def reset(self):
