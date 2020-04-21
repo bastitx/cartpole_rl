@@ -222,8 +222,8 @@ class CartPoleEnv(gym.Env):
                 state[2] -= 2*np.pi
         if self.observe_params:
             state = np.append(state, self.params)
-        self.state = torch.tensor([state]).float().detach()
-        self.i = torch.tensor([0.])
+        self.state = torch.tensor([state], device=device).float().detach()
+        self.i = torch.tensor([0.], device=device)
         self.nc_sign = 1
         return self.state
 
@@ -313,7 +313,7 @@ if __name__ == '__main__':
         try:
             while True:
                 env.render()
-                action = torch.tensor([agent.act(state)]).float()
+                action = torch.tensor([agent.act(state)], device=device).float()
                 next_state, _, done, _ = env.step(action)
                 #memory += [[i, state[0], state[3], action[0]]]
                 state = next_state

@@ -5,8 +5,10 @@ from model import ActorCriticModel
 import sys
 import argparse
 import numpy as np
+import torch
 from torch.utils.tensorboard import SummaryWriter
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def main():
 	global env, agent, args, episode

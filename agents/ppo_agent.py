@@ -25,10 +25,9 @@ class PPOAgent():
         self.MseLoss = nn.MSELoss()
 
     def act(self, state):
-        comp_state = torch.tensor(state[None,:], device=device).float()
-        action, logprob = self.policy_old.act(comp_state)
+        action, logprob = self.policy_old.act(state[None,:])
         action = torch.clamp(action, -1, 1).squeeze(1)
-        return action.detach().cpu().numpy(), logprob.detach().cpu().numpy()
+        return action.detach(), logprob.detach()
 
     def remember(self, *args):
         self.memory.push(*args)
