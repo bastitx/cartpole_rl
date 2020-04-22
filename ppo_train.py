@@ -48,6 +48,8 @@ def main():
 		except Exception:
 			print("Couldn't load weights!")
 			episode = 0
+	else:
+		episode = 0
 
 	episode_reward = 0
 	last_episode_start = -1
@@ -84,6 +86,9 @@ def main():
 			agent.memory.clear()
 			if args.randomize:
 				done = True
+			if args.swingup: # try alternating between swingup and balance to get a better result?
+				done = True
+				env.swingup = ~env.swingup
 
 		state = next_state
 
