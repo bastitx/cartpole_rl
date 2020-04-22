@@ -44,11 +44,9 @@ def main():
 		try:
 			agent.load_weights('models', args.resume_episode)
 			print("loaded weights")
-			agent.policy.action_var = torch.nn.Parameter(torch.full((1,), 0.2)).to(device)
-			agent.policy.action_var = torch.nn.Parameter(torch.full((1,), 0.2)).to(device)
 			episode = args.resume_episode
-		except Exception:
-			print("Couldn't load weights!")
+		except Exception as e:
+			print("Couldn't load weights! {}".format(e))
 			episode = 0
 	else:
 		episode = 0
