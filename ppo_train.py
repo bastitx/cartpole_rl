@@ -42,12 +42,13 @@ def main():
 
 	if args.resume_episode > 0:
 		try:
-			agent.load_weights('models', args.resume_episode, args.mode == 'train')
+			agent.load_weights('models', args.resume_episode)
 			print("loaded weights")
+			episode = args.resume_episode
 		except Exception:
 			print("Couldn't load weights!")
+			episode = 0
 
-	episode = args.resume_episode
 	episode_reward = 0
 	last_episode_start = -1
 	done = True

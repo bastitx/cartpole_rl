@@ -74,7 +74,7 @@ class PPOAgent():
         avg_loss /= (self.epochs + len(self.memory) // self.batch_size - 1)
         return avg_loss
 
-    def load_weights(self, folder, epoch, memory=True):
+    def load_weights(self, folder, epoch):
         if folder is None:
             return
 
@@ -82,15 +82,11 @@ class PPOAgent():
         self.policy.load_state_dict(checkpoint['policy'])
         self.policy_old.load_state_dict(checkpoint['policy'])
         self.optim.load_state_dict(checkpoint['optim'])
-        if memory:
-            for m in checkpoint['memory']:
-                self.memory.push(m.state, m.action, m.logprob, m.next_state, m.reward, m.done)
 
     def save_model(self, output, epoch):
         torch.save({
             'epoch': epoch,
             'policy': self.policy.state_dict(),
             'actor': self.policy.actor.state_dict(),
-            'optim': self.optim.state_dict(),
-            'memory': self.memory.memory
+            'optim': self.optim.state_dict()
         }, '{}/checkpoint-{}.pkl'.format(output, epoch))
