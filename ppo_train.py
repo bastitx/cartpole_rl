@@ -84,6 +84,9 @@ def main():
 			agent.memory.clear()
 			if args.randomize:
 				done = True
+			if args.swingup: # try alternating between swingup and balance to get a better result?
+				done = True
+				env.swingup = ~env.swingup
 
 		state = next_state
 
