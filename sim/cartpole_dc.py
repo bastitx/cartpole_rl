@@ -74,7 +74,7 @@ class CartPoleEnv(gym.Env):
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
         self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
         self.J = self.J_rotor #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
-        self.max_voltage = 19.36
+        self.max_voltage = 19.36 # measured 20V
         self.transform_factor = 1.5
         
         self.solver = solver
@@ -208,7 +208,7 @@ class CartPoleEnv(gym.Env):
             done = done | (theta_ < -self.theta_threshold_radians) \
                     | (theta_ > self.theta_threshold_radians)
 
-        reward = torch.where(~done, 10 - theta_**2 - torch.log(theta_**2 + 0.1) - 0.2 * torch.abs(x_), torch.zeros(done.shape).to(device))
+        reward = torch.where(~done, - theta_**2 - 0.1 * x_**2), torch.zeros(done.shape).to(device))
         
         return self.state, reward, done, {}
 
