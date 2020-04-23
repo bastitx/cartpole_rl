@@ -37,13 +37,12 @@ class DDPGAgent():
         hard_update(self.critic_target, self.critic)
 
     def act(self, state):
-        comp_state = torch.tensor(state, device=device).float()
-        action = self.actor(comp_state).detach().cpu().numpy()
+        action = self.actor(state).detach()
         action += self.epsilon * self.random_process.sample()
         #action += np.random.normal(scale=self.epsilon)
-        action = np.clip(action, -1., 1.)
+        action = torch.clamp(action, -1., 1.)
         self.epsilon = max(self.epsilon*self.epsilon_decay, self.epsilon_min)
-        return action
+        return action.float()
 
     def remember(self, *args):
         self.memory.push(*args)
@@ -53,13 +52,13 @@ class DDPGAgent():
             return
         transitions = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
-        state_batch = torch.tensor(np.concatenate(batch.state), device=device).float()
-        action_batch = torch.tensor(np.concatenate(batch.action), device=device).float()
-        reward_batch = torch.tensor(np.concatenate(batch.reward)[:, None], device=device).float()
-        done_batch = torch.tensor(np.concatenate(batch.done)[:, None].astype(np.float), device=device).float()
+        state_batch = torch.cat(batch.state)
+        action_batch = torch.cat(batch.action)
+        reward_batch = torch.cat(batch.reward)[:, None]
+        done_batch = torch.cat(batch.done)[:, None].float()
 
         with torch.no_grad():
-            next_state_batch = torch.tensor(np.concatenate(batch.next_state), device=device).float()
+            next_state_batch = torch.cat(batch.next_state)
             next_q_values = self.critic_target((next_state_batch, self.actor_target(next_state_batch)))
 
         q_target_batch = reward_batch + self.gamma * \

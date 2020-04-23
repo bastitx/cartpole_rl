@@ -41,8 +41,6 @@ def main():
     state_shape = np.array(env.observation_space.shape)
     agent = DDPGAgent(tuple(state_shape), env.action_space.shape, ActorModel, CriticModel, args.gamma, args.epsilon, args.epsilon_min,
                       args.epsilon_decay, args.lr_actor, args.lr_critic, args.tau, args.batch_size, args.memory_size)
-    #writer.add_graph(agent.actor)
-    #writer.add_graph(agent.critic)
     
     if args.resume_episode > 0:
         try:
@@ -77,8 +75,9 @@ def main():
         
         action = agent.act(state)
         next_state, reward, done, _ = env.step(action)
+        next_state = next_state.detach()
         episode_reward += reward
-        agent.remember([state], [action], [next_state], [reward], [done])
+        agent.remember(state, action, next_state, reward.detach(), done.detach())
 
         if args.mode == 'train' and i >= args.warmup:
             agent.update()

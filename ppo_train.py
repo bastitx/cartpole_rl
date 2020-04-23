@@ -17,7 +17,7 @@ def main():
 
 	parser.add_argument('--mode', default='train', type=str)
 	parser.add_argument('--max-iterations', default=100000, type=int)
-	parser.add_argument('--max_episode-length', default=500, type=int)
+	parser.add_argument('--max-episode-length', default=500, type=int)
 	parser.add_argument('--resume-episode', default=0, type=int)
 	parser.add_argument('--gamma', default=0.99, type=float)
 	parser.add_argument('--lr', default=0.0001, type=float)
@@ -65,7 +65,8 @@ def main():
 			writer.add_scalar('Variance', agent.policy.action_var, episode)
 			writer.add_scalar('Memory', len(agent.memory.memory), episode)
 			writer.flush()
-			state = env.reset()
+			state = env.reset(variance=0.4)
+			writer.add_scalar('StateValue', agent.policy_old.critic(state), episode)
 			if args.randomize:
 				env.randomize_params()
 			episode_reward = 0
