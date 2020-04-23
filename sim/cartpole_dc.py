@@ -212,17 +212,16 @@ class CartPoleEnv(gym.Env):
         
         return self.state, reward, done, {}
 
-    def reset(self):
-        state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
-        if self.swingup:
-            state[2] = (state[2] + np.pi) % (2*np.pi)
-            if state[2] >= np.pi:
-                state[2] -= 2*np.pi
+    def reset(self, n=1, variance=0.05):
+        state = self.np_random.normal(0, variance, size=(n,4))
+        #if self.swingup:
+        #    state[:,2] = (state[:,2] + np.pi) % (2*np.pi)
+        #    state[:,2] = np.where(state[:,2] >= np.pi, state[:,2] - 2*np.pi, state[:,2])
         if self.observe_params:
             state = np.append(state, self.params)
-        self.state = torch.tensor([state], device=device).float().detach()
-        self.i = torch.tensor([0.], device=device)
-        self.nc_sign = 1
+        self.state = torch.tensor(state, device=device).float().detach()
+        self.i = torch.zeros(n).to(device)
+        self.nc_sign = torch.ones(n).to(device)
         return self.state
 
     def render(self, mode='human'):
