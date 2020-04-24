@@ -104,7 +104,7 @@ class ActorCriticModel(nn.Module):
         a_var = self.action_var.expand_as(a_mean)
         cov_mat = torch.diag_embed(a_var).to(device)
         dist = torch.distributions.MultivariateNormal(a_mean, cov_mat)
-        a_logprobs = dist.log_prob(action)
+        a_logprobs = dist.log_prob(action.unsqueeze(1))
         dist_entropy = dist.entropy()
         state_value = self.critic(state)
         return a_logprobs, state_value.squeeze(1), dist_entropy

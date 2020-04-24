@@ -182,7 +182,7 @@ class CartPoleEnv(gym.Env):
         assert isinstance(action, torch.Tensor)
         state = self.state.detach()
         x, x_dot, theta, theta_dot, *_ = state.T
-        u = torch.sign(action[:,0]) * (torch.abs(action[:,0]) * self.max_voltage)**self.transform_factor
+        u = torch.sign(action) * (torch.abs(action) * self.max_voltage)**self.transform_factor
         y0 = torch.stack([x, x_dot, theta, theta_dot, self.i]).to(device).detach()
         k1 = self.tau * self.f(0, y0, u)
         k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, u)

@@ -21,9 +21,9 @@ def main():
 	parser.add_argument('--resume-episode', default=0, type=int)
 	parser.add_argument('--gamma', default=0.99, type=float)
 	parser.add_argument('--lr', default=0.0001, type=float)
-	parser.add_argument('--batch-size', default=512, type=int)
-	parser.add_argument('--memory-size', default=8192, type=int)
-	parser.add_argument('--epochs', default=80, type=int)
+	parser.add_argument('--batch-size', default=256, type=int)
+	parser.add_argument('--memory-size', default=4096, type=int)
+	parser.add_argument('--epochs', default=16, type=int)
 	parser.add_argument('--randomize', dest='randomize', action='store_true')
 	parser.set_defaults(randomize=False)
 	parser.add_argument('--render', dest='render', action='store_true')
@@ -36,8 +36,7 @@ def main():
 	env = CartPoleEnv(args.swingup, observe_params=args.randomize)
 
 	writer = SummaryWriter()
-
-	agent = PPOAgent(env.observation_space.shape, env.action_space.shape, ActorCriticModel, args.gamma, 
+	agent = PPOAgent((16,), env.action_space.shape, ActorCriticModel, args.gamma, 
 					args.lr, args.batch_size, args.epochs, args.memory_size)
 
 	if args.resume_episode > 0:
@@ -65,8 +64,10 @@ def main():
 			writer.add_scalar('Variance', agent.policy.action_var, episode)
 			writer.add_scalar('Memory', len(agent.memory.memory), episode)
 			writer.flush()
-			state = env.reset(variance=0.4)
-			writer.add_scalar('StateValue', agent.policy_old.critic(state), episode)
+			comp_state = torch.zeros((4,4))
+			state = env.reset(variance=0.05)
+			state = state.detach()
+			#writer.add_scalar('StateValue', agent.policy_old.critic(state), episode)
 			if args.randomize:
 				env.randomize_params()
 			episode_reward = 0
@@ -74,12 +75,14 @@ def main():
 
 		if args.render:
 			env.render()
+		
+		comp_state = torch.cat((state[0,None], comp_state[:-1]))
 
-		action, logprob = agent.act(state)
+		action, logprob = agent.act(comp_state.flatten().unsqueeze(0))
 		next_state, reward, done, _ = env.step(action)
 		next_state = next_state.detach()
 		episode_reward += reward
-		agent.remember(state, action, logprob, next_state, reward.detach(), done.detach())
+		agent.remember(comp_state.flatten().unsqueeze(0), action, logprob, next_state, reward.detach(), done.detach())
 
 		if args.mode == 'train' and i % args.memory_size == 0 and i > 0:
 			avg_loss = agent.update()

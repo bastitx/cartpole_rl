@@ -25,7 +25,7 @@ class PPOAgent():
         self.MseLoss = nn.MSELoss()
 
     def act(self, state):
-        action, logprob = self.policy_old.act(state[None,:])
+        action, logprob = self.policy_old.act(state)
         action = torch.clamp(action, -1, 1).squeeze(1)
         return action.detach(), logprob.detach()
 
@@ -38,7 +38,7 @@ class PPOAgent():
         batch = Transition_PPO(*zip(*self.memory.memory))
         state_batch = torch.cat(batch.state)
         action_batch = torch.cat(batch.action)
-        logprob_batch = torch.cat(batch.logprob).squeeze(1)
+        logprob_batch = torch.cat(batch.logprob)
         reward_batch = torch.cat(batch.reward).cpu().numpy()
         done_batch = torch.cat(batch.done).cpu().numpy()
 
