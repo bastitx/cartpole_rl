@@ -208,7 +208,7 @@ class CartPoleEnv(gym.Env):
             done = done | (theta_ < -self.theta_threshold_radians) \
                     | (theta_ > self.theta_threshold_radians)
 
-        reward = torch.where(~done, 10 - theta_**2 - 0.2 * x_**2, torch.zeros(done.shape).to(device))
+        reward = torch.where(~done, 12 - theta_**2 - 25 * x_**2 - 0.05 * torch.abs(u), torch.zeros(done.shape).to(device))
         
         return self.state, reward, done, {}
 

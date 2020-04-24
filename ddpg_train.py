@@ -66,7 +66,7 @@ def main():
             writer.flush()
             if args.randomize:
                 env.randomize_params()
-            state = env.reset()
+            state = env.reset(variance=0.4)
             episode_reward = 0
             last_episode_start = i
 
