@@ -24,6 +24,7 @@ def main():
 	parser.add_argument('--batch-size', default=256, type=int)
 	parser.add_argument('--memory-size', default=4096, type=int)
 	parser.add_argument('--epochs', default=16, type=int)
+	parser.add_argument('--init-variance', default=0.25, type=float)
 	parser.add_argument('--randomize', dest='randomize', action='store_true')
 	parser.set_defaults(randomize=False)
 	parser.add_argument('--render', dest='render', action='store_true')
@@ -37,7 +38,7 @@ def main():
 
 	writer = SummaryWriter()
 	agent = PPOAgent((16,), env.action_space.shape, ActorCriticModel, args.gamma, 
-					args.lr, args.batch_size, args.epochs, args.memory_size)
+					args.lr, args.batch_size, args.epochs, args.memory_size, args.init_variance)
 
 	if args.resume_episode > 0:
 		try:
