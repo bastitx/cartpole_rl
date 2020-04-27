@@ -9,16 +9,16 @@ from util.replay_memory import ReplayMemory, Transition_PPO
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class PPOAgent():
-    def __init__(self, state_shape, action_shape, ActorCritic, gamma=0.99, lr=0.0001, batch_size=64, epochs=80, memory_size=10000):
+    def __init__(self, state_shape, action_shape, ActorCritic, gamma=0.99, lr=0.0001, batch_size=64, epochs=80, memory_size=10000, init_var=0.25):
         self.action_shape = action_shape
         self.state_shape = state_shape
         self.gamma = gamma  # discount
         self.epsilon = 0.2  # clip
         self.lr = lr
         self.batch_size = batch_size
-        self.policy = ActorCritic(state_shape, action_shape, 0.25).to(device)
+        self.policy = ActorCritic(state_shape, action_shape, init_var).to(device)
         self.optim = torch.optim.Adam(self.policy.parameters(), lr=self.lr, betas=(0.9, 0.999))
-        self.policy_old = ActorCritic(state_shape, action_shape, 0.25).to(device)
+        self.policy_old = ActorCritic(state_shape, action_shape, init_var).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         self.epochs = epochs
         self.memory = ReplayMemory(memory_size, Transition_PPO)
