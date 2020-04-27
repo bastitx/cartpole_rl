@@ -76,6 +76,7 @@ class CartPoleEnv(gym.Env):
         self.J = self.J_rotor #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
         self.max_voltage = 19.36 # measured 20V
         self.transform_factor = 1.5
+        self.time_delay = 0 # must be integer of time steps
         
         self.solver = solver
         self.swingup = swingup
@@ -183,6 +184,8 @@ class CartPoleEnv(gym.Env):
         state = self.state.detach()
         x, x_dot, theta, theta_dot, *_ = state.T
         u = torch.sign(action) * (torch.abs(action) * self.max_voltage)**self.transform_factor
+        self.delay_buffer = torch.cat((self.delay_buffer[1:], u.unsqueeze(0)))
+        u = self.delay_buffer[0]
         y0 = torch.stack([x, x_dot, theta, theta_dot, self.i]).to(device).detach()
         k1 = self.tau * self.f(0, y0, u)
         k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, u)
@@ -222,6 +225,7 @@ class CartPoleEnv(gym.Env):
         self.state = torch.tensor(state, device=device).float().detach()
         self.i = torch.zeros(n).to(device)
         self.nc_sign = torch.ones(n).to(device)
+        self.delay_buffer = torch.zeros((int(self.time_delay) + 1, n)).to(device)
         return self.state
 
     def render(self, mode='human'):
