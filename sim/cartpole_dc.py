@@ -66,17 +66,17 @@ class CartPoleEnv(gym.Env):
         self.tau = 0.02 # seconds between state updates
         
         self.i = 0 # current
-        self.Psi = 3.357 # flux
+        self.Psi = 4.8527 # flux
         self.R = 20 # resistance measured
-        self.L = 0.3837 # inductance
+        self.L = 0.202774 # inductance
         self.radius = 0.02
         self.J_rotor = 0.017 # moment of inertia of motor
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
         self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
         self.J = self.J_rotor #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
-        self.max_voltage = 19.36 # measured 20V
-        self.transform_factor = 1.5
-        self.time_delay = 0 # must be integer of time steps
+        self.max_voltage = 10.7486 # measured 20V
+        self.transform_factor = 1.963
+        self.time_delay = 4 # must be integer of time steps
         
         self.solver = solver
         self.swingup = swingup
