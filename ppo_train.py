@@ -65,7 +65,7 @@ def main():
 			writer.add_scalar('Variance', agent.policy.action_var, episode)
 			writer.add_scalar('Memory', len(agent.memory.memory), episode)
 			writer.flush()
-			comp_state = torch.zeros((4,4))
+			comp_state = torch.zeros((4,4)).to(device)
 			state = env.reset(variance=0.05)
 			state = state.detach()
 			#writer.add_scalar('StateValue', agent.policy_old.critic(state), episode)
