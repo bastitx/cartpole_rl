@@ -77,6 +77,7 @@ class CartPoleEnv(gym.Env):
         self.max_voltage = 4.372 # measured 20V
         self.transform_factor = 2.697
         self.time_delay = 0 # must be integer of time steps
+        self.min_action = 0.2
         self.noise = torch.distributions.normal.Normal(torch.zeros((4,)), torch.tensor([0.01, 0.0001, 0.02, 0.002]))
         
         self.solver = solver
@@ -182,6 +183,7 @@ class CartPoleEnv(gym.Env):
         state = self.state.detach()
         x, x_dot, theta, theta_dot, *_ = state.T
         u = torch.sign(action) * (torch.abs(action) * self.max_voltage)**self.transform_factor
+        u = torch.where(torch.abs(action) < self.min_action, torch.zeros_like(u), u)
         self.delay_buffer = torch.cat((self.delay_buffer[1:], u.unsqueeze(0)))
         u = self.delay_buffer[0]
         y0 = torch.stack([x, x_dot, theta, theta_dot, self.i]).to(device).detach()
@@ -217,9 +219,9 @@ class CartPoleEnv(gym.Env):
 
     def reset(self, n=1, variance=0.05):
         state = self.np_random.normal(0, variance, size=(n,4))
-        #if self.swingup:
-        #    state[:,2] = (state[:,2] + np.pi) % (2*np.pi)
-        #    state[:,2] = np.where(state[:,2] >= np.pi, state[:,2] - 2*np.pi, state[:,2])
+        if self.swingup:
+            state[:,2] = (state[:,2] + np.pi) % (2*np.pi)
+            state[:,2] = np.where(state[:,2] >= np.pi, state[:,2] - 2*np.pi, state[:,2])
         if self.observe_params:
             state = np.append(state, self.params)
         self.state = torch.tensor(state, device=device).float().detach()
