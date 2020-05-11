@@ -77,7 +77,7 @@ class CartPoleEnv(gym.Env):
         self.max_voltage = 4.372 # measured 20V
         self.transform_factor = 2.697
         self.time_delay = 0 # must be integer of time steps
-        self.min_action = 0.2
+        self.min_action = 0.75
         self.noise = torch.distributions.normal.Normal(torch.zeros((4,)), torch.tensor([0.01, 0.0001, 0.02, 0.002]))
         
         self.solver = solver
@@ -96,9 +96,9 @@ class CartPoleEnv(gym.Env):
                         dtype=np.float32)
         low = -high
         self.observation_space = spaces.Box(low, high)
-
-        low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.000001, 0.01, 0.1, 0.0001])
-        high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05, 0.5, 5.0, 0.2])
+        # masscart, masspole, length, mu_cart, mu_pole, Psi, R, L, transform_factor, time_delay
+        low_p = np.array([0.4, 0.03, 0.5, 0.0004, 0.0002, 2.0, 18, 0.4, 2.5, 0])
+        high_p = np.array([0.5, 0.07, 0.7, 0.0009, 0.0004, 2.5, 22, 0.6, 2.9, 3])
         self.param_space = spaces.Box(low_p, high_p)
         low = np.append(low, low_p)
         high = np.append(high, high_p)
@@ -126,7 +126,7 @@ class CartPoleEnv(gym.Env):
     
     @params.setter
     def params(self, val):
-        assert(len(val) == 8)
+        assert(len(val) == 10)
         self.masscart = val[0]
         self.masspole = val[1]
         self.length = val[2]
@@ -135,6 +135,8 @@ class CartPoleEnv(gym.Env):
         self.Psi = val[5]
         self.R = val[6]
         self.L = val[7]
+        self.transform_factor = val[8]
+        self.time_delay = int(val[9])
     
     def randomize_params(self):
         self.params = self.param_space.sample()
