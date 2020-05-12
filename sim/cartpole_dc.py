@@ -122,7 +122,8 @@ class CartPoleEnv(gym.Env):
     @property
     def params(self):
         return np.array([self.masscart, self.masspole, self.length, 
-                self.mu_cart, self.mu_pole, self.Psi, self.R, self.L])
+                self.mu_cart, self.mu_pole, self.Psi, self.R, self.L, 
+                self.transform_factor, self.time_delay])
     
     @params.setter
     def params(self, val):
