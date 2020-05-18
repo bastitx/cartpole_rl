@@ -1,4 +1,4 @@
-from sim.cartpole_dc import CartPoleEnv
+from sim.cartpole_dc import CartPoleDCEnv as CartPoleEnv
 from model import ActorModel, CriticModel, ActorCriticModel
 import sys
 from trainer.ddpg_trainer import DDPGTrainer

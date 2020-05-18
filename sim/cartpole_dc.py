@@ -12,59 +12,13 @@ from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
 import torch
+from sim.cartpole import CartPoleEnv
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-class CartPoleEnv(gym.Env):
-    """
-    Description:
-        A pole is attached by an un-actuated joint to a cart, which moves along a frictionless track. The pendulum starts upright, and the goal is to prevent it from falling over by increasing and reducing the cart's velocity.
-    Source:
-        This environment corresponds to the version of the cart-pole problem described by Barto, Sutton, and Anderson
-    Observation: 
-        Type: Box(4)
-        Num	Observation                 Min         Max
-        0	Cart Position             -4.8            4.8
-        1	Cart Velocity             -Inf            Inf
-        2	Pole Angle                 -24 deg        24 deg
-        3	Pole Velocity At Tip      -Inf            Inf
-        
-    Actions:
-        Type: Discrete(2)
-        Num	Action
-        0	Push cart to the left
-        1	Push cart to the right
-        
-        Note: The amount the velocity that is reduced or increased is not fixed; it depends on the angle the pole is pointing. This is because the center of gravity of the pole increases the amount of energy needed to move the cart underneath it
-    Reward:
-        Reward is 1 for every step taken, including the termination step
-    Starting State:
-        All observations are assigned a uniform random value in [-0.05..0.05]
-    Episode Termination:
-        Pole Angle is more than 12 degrees
-        Cart Position is more than 2.4 (center of the cart reaches the edge of the display)
-        Episode length is greater than 200
-        Solved Requirements
-        Considered solved when the average reward is greater than or equal to 195.0 over 100 consecutive trials.
-    """
-    
-    metadata = {
-        'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second' : 50
-    }
-
-    def __init__(self, swingup=True, observe_params=False, motortest=False, solver='rk', randomize=False):
-        self.gravity = 9.81 
-        self.masscart = 0.43 # kg measured
-        self.masspole = 0.05 # kg measured
-        self.total_mass = (self.masspole + self.masscart)
-        self.length = 0.13 # actually half the pole's length in meters; measured
-        self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.0005 # friction cart; not that important because of motor brake?
-        self.mu_pole = 0.0003 # friction pole; approximated from measurements
-        self.nc_sign = 1
-        self.tau = 0.02 # seconds between state updates
-        
+class CartPoleDCEnv(CartPoleEnv):
+    def __init__(self, swingup=True, observe_params=False, randomize=False):
+        super().__init__(swingup, observe_params, randomize)
         self.i = 0 # current
         self.Psi = 2.2087 # flux
         self.R = 20 # resistance measured
@@ -78,17 +32,6 @@ class CartPoleEnv(gym.Env):
         self.transform_factor = 2.697
         self.time_delay = 0 # must be integer of time steps
         self.min_action = 0.7
-        self.noise = torch.distributions.normal.Normal(torch.zeros((4,)), torch.tensor([0.01, 0.0001, 0.02, 0.002]))
-        
-        self.solver = solver
-        self.swingup = swingup
-        self.observe_params = observe_params
-        self.motortest = motortest
-        self.randomize = randomize
-
-        # Angle at which to fail the episode if swingup != False
-        self.theta_threshold_radians = 1.57
-        self.x_threshold = 0.2 # length of tracks in meters
 
         high = np.array([self.x_threshold,
                          np.finfo(np.float32).max,
@@ -113,12 +56,6 @@ class CartPoleEnv(gym.Env):
         self.seed()
         self.viewer = None
         self.state = None
-
-        self.steps_beyond_done = None
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
     
     @property
     def params(self):
@@ -139,9 +76,6 @@ class CartPoleEnv(gym.Env):
         self.L = val[7]
         self.transform_factor = val[8]
         self.time_delay = int(val[9])
-    
-    def randomize_params(self):
-        self.params = self.param_space.sample()
     
     def f(self, t, y, u):
         x_dot = y[1]
@@ -181,59 +115,27 @@ class CartPoleEnv(gym.Env):
         xacc = (self.Psi * i / self.radius + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
             self.mu_cart * nc * self.nc_sign) / (self.total_mass + self.J / self.radius**2)
         return torch.stack([x_dot, xacc, theta_dot, thetaacc, i_dot])
-
-    def step(self, action):
-        assert isinstance(action, torch.Tensor)
-        state = self.state.detach()
-        x, x_dot, theta, theta_dot, *_ = state.T
+    
+    def preprocessing(self, action):
         u = torch.sign(action) * (torch.abs(action) * self.max_voltage)**self.transform_factor
         u = torch.where(torch.abs(action) < self.min_action, torch.zeros_like(u), u)
         self.delay_buffer = torch.cat((self.delay_buffer[1:], u.unsqueeze(0)))
-        u = self.delay_buffer[0]
-        
-        y0 = torch.stack([x, x_dot, theta, theta_dot, self.i]).to(device).detach()
-        k1 = self.tau * self.f(0, y0, u)
-        k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, u)
-        k3 = self.tau * self.f(self.tau / 2, y0 + k2 / 2, u)
-        k4 = self.tau * self.f(self.tau, y0 + k3, u)
-        x_, x_dot_, theta_, theta_dot_, i_ = y0 + k1 / 6 + k2 / 3 + k3 / 3 + k4 / 6
+        return self.delay_buffer[0]
+    
+    def state_input(self, state):
+        x, x_dot, theta, theta_dot, *_ = state.T
+        return [x, x_dot, theta, theta_dot, self.i]
 
-        theta_ = theta_ % (2 * np.pi)
-        theta_ = torch.where(theta_ >= np.pi, theta_ - 2*np.pi, theta_)
+    def state_output(self, new_state):
+        x_, x_dot_, theta_, theta_dot_, i_ = new_state
         self.i = i_
-
-        self.state = torch.stack((x_, x_dot_, theta_, theta_dot_)).T
-
-        if self.motortest:
-            return x_dot_
-
-        done =  (x_ < -self.x_threshold) | (x_ > self.x_threshold)
-        if not self.swingup:
-            done = done | (theta_ < -self.theta_threshold_radians) \
-                    | (theta_ > self.theta_threshold_radians)
-
-        reward = torch.where(~done, 12 - theta_**2 - 0.1 * theta_dot_**2 - 0.0001 * torch.abs(u), torch.zeros(done.shape).to(device))
-
-        observation = self.state + self.noise.sample()
-        if self.observe_params:
-            observation = torch.cat((self.state, torch.stack((*self.params)).T))
-        
-        return observation, reward, done, {}
+        return [x_, x_dot_, theta_, theta_dot_]
 
     def reset(self, n=1, variance=0.05):
-        if self.randomize:
-            self.randomize_params()
-        state = self.np_random.normal(0, variance, size=(n,4))
-        if self.swingup:
-            state[:,2] = (state[:,2] + np.pi) % (2*np.pi)
-            state[:,2] = np.where(state[:,2] >= np.pi, state[:,2] - 2*np.pi, state[:,2])
-        if self.observe_params:
-            state = np.append(state, self.params)
-        self.state = torch.tensor(state, device=device).float().detach()
+        state = super().reset(n, variance)
         self.i = torch.zeros(n).to(device)
-        self.nc_sign = torch.ones(n).to(device)
         self.delay_buffer = torch.zeros((int(self.time_delay) + 1, n)).to(device)
-        return self.state
+        return state
 
     def render(self, mode='human'):
         screen_width = 600

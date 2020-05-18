@@ -11,7 +11,6 @@ import gym
 from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
-from scipy.integrate import solve_ivp
 import torch
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -54,7 +53,7 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=True, observe_params=False, solver='rk'):
+    def __init__(self, swingup=True, observe_params=False, randomize=False):
         self.gravity = 9.81
         self.masscart = 0.43 # kg
         self.masspole = 0.05 # kg
@@ -65,16 +64,14 @@ class CartPoleEnv(gym.Env):
         self.mu_pole = 0.0003 # friction pole
         self.nc_sign = 1
         self.tau = 0.02 # seconds between state updates
-        self.solver = solver
+        self.noise = torch.distributions.normal.Normal(torch.zeros((4,)), torch.tensor([0.01, 0.0001, 0.02, 0.002]))
 
         self.swingup = swingup
         self.observe_params = observe_params
-
-        #add noise?
-        #add delay?
+        self.randomize = randomize
 
         # Angle at which to fail the episode if swingup != False
-        self.theta_threshold_radians = 0.21
+        self.theta_threshold_radians = 1.57
         self.x_threshold = 0.2 # length of tracks in meters
 
         high = np.array([self.x_threshold,
@@ -84,9 +81,9 @@ class CartPoleEnv(gym.Env):
                         dtype=np.float32)
         low = -high
         self.observation_space = spaces.Box(low, high)
-
-        low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.01])
-        high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05])
+        # masscart, masspole, length, mu_pole
+        low_p = np.array([0.4, 0.03, 0.5, 0.0002])
+        high_p = np.array([0.5, 0.07, 0.7, 0.0004])
         self.param_space = spaces.Box(low_p, high_p)
         low = np.append(low, low_p)
         high = np.append(high, high_p)
@@ -101,25 +98,21 @@ class CartPoleEnv(gym.Env):
         self.viewer = None
         self.state = None
 
-        self.steps_beyond_done = None
-
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
     
     @property
     def params(self):
-        return np.array([self.masscart, self.masspole, self.length, 
-                self.mu_cart, self.mu_pole])
+        return np.array([self.masscart, self.masspole, self.length, self.mu_pole])
     
     @params.setter
     def params(self, val):
-        assert(len(val) == 5)
+        assert(len(val) == 4)
         self.masscart = val[0]
         self.masspole = val[1]
         self.length = val[2]
-        self.mu_cart = val[3]
-        self.mu_pole = val[4]
+        self.mu_pole = val[3]
     
     def randomize_params(self):
         self.params = self.param_space.sample()
@@ -129,8 +122,8 @@ class CartPoleEnv(gym.Env):
         x_dot = y[1]
         theta = y[2]
         theta_dot = y[3]
-        costheta = math.cos(theta)
-        sintheta = math.sin(theta)
+        costheta = torch.cos(theta)
+        sintheta = torch.sin(theta)
 
         def get_thetaacc():
             temp = (-force - self.polemass_length * theta_dot**2 * \
@@ -143,104 +136,69 @@ class CartPoleEnv(gym.Env):
         
         thetaacc = get_thetaacc()
         nc = self.total_mass * self.gravity - self.polemass_length * \
-            (thetaacc * sintheta + theta_dot**2 * costheta)
-        if isinstance(force, torch.Tensor):
-            nc_sign = torch.sign(nc * x_dot).detach()
-        else:
-            nc_sign = np.sign(nc * x_dot)
-        if nc_sign != self.nc_sign:
+            (thetaacc * sintheta + theta_dot * theta_dot * costheta)
+
+        nc_sign = torch.sign(nc * x_dot).detach()
+        if (nc_sign != self.nc_sign).any():
             self.nc_sign = nc_sign
             thetaacc = get_thetaacc()
 
-        xacc  = (force + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
+        xacc = (force + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
             self.mu_cart * nc * nc_sign) / self.total_mass
-        
-        if isinstance(force, torch.Tensor):
-            return torch.stack([x_dot, xacc, theta_dot, thetaacc])
-        else:
-            return np.array([x_dot, xacc, theta_dot, thetaacc])
-
+        return torch.stack([x_dot, xacc, theta_dot, thetaacc])
+    
+    def preprocessing(self, action):
+        return action[:,0]
+    
+    def state_input(self, state):
+        x, x_dot, theta, theta_dot, *_ = state.T
+        return [x, x_dot, theta, theta_dot]
+    
+    def state_output(self, new_state):
+        return new_state
 
     def step(self, action):
-        if not isinstance(action, torch.Tensor):
-            assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
-            state = self.state
-        else:
-            state = self.state.detach()
-        x, x_dot, theta, theta_dot, *_ = state
-        force = action[0]
-        if self.solver == 'euler':
-            _, xacc, _, thetaacc = self.f(0, [x, x_dot, theta, theta_dot], force)
-            x_ = x + self.tau * x_dot
-            x_dot_ = x_dot + self.tau * xacc
-            theta_ = theta + self.tau * theta_dot
-            theta_dot_ = theta_dot + self.tau * thetaacc
-        elif self.solver == 'rk':
-            if isinstance(action, torch.Tensor):
-                y0 = torch.tensor([x, x_dot, theta, theta_dot], device=device).detach()
-            else:
-                y0 = np.array([x, x_dot, theta, theta_dot])
-            k1 = self.tau * self.f(0, y0, force)
-            k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, force)
-            k3 = self.tau * self.f(self.tau / 2, y0 + k2 / 2, force)
-            k4 = self.tau * self.f(self.tau, y0 + k3, force)
-            x_, x_dot_, theta_, theta_dot_ = y0 + k1 / 6 + k2 / 3 + k3 / 3 + k4 / 6
-        else:
-            res = solve_ivp(self.f, (0, self.tau), [x, x_dot, theta, theta_dot], args=[force], method=self.solver, t_eval=[self.tau], atol=1, rtol=1)
-            if not res['success']:
-                raise Exception("Problem in integrator: {}".format(res['message']))
-            else:
-                x_, x_dot_, theta_, theta_dot_ = res['y'][:,-1]
+        assert isinstance(action, torch.Tensor)
+        state = self.state.detach()
+        u = self.preprocessing(action)
+
+        y0 = torch.stack(self.state_input(state)).to(device).detach()
+        k1 = self.tau * self.f(0, y0, u)
+        k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, u)
+        k3 = self.tau * self.f(self.tau / 2, y0 + k2 / 2, u)
+        k4 = self.tau * self.f(self.tau, y0 + k3, u)
+        x_, x_dot_, theta_, theta_dot_ = self.state_output(y0 + k1 / 6 + k2 / 3 + k3 / 3 + k4 / 6)
 
         theta_ = theta_ % (2 * np.pi)
+        theta_ = torch.where(theta_ >= np.pi, theta_ - 2*np.pi, theta_)
 
-        if theta_ >= np.pi:
-            theta_ = theta_ - 2*np.pi
-        if self.observe_params:
-            self.state = (x_,x_dot_,theta_,theta_dot_, *self.params)
-        else:
-            self.state = (x_,x_dot_,theta_,theta_dot_)
+        self.state = torch.stack((x_, x_dot_, theta_, theta_dot_)).T
 
-        done =  x < -self.x_threshold \
-                or x > self.x_threshold
+        done =  (x_ < -self.x_threshold) | (x_ > self.x_threshold)
         if not self.swingup:
-            done = done or theta < -self.theta_threshold_radians \
-                    or theta > self.theta_threshold_radians
-        done = bool(done)
+            done = done | (theta_ < -self.theta_threshold_radians) \
+                    | (theta_ > self.theta_threshold_radians)
 
-        if not done and self.swingup:
-            reward = np.cos(theta)-0.1*x**2-0.1*np.abs(x_dot)+1.6
-        elif not done:
-            reward = 1
-        elif self.steps_beyond_done is None:
-            # Pole just fell!
-            self.steps_beyond_done = 0
-            reward = 0.0
-        else:
-            if self.steps_beyond_done == 0:
-                logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True' -- any further steps are undefined behavior.")
-            self.steps_beyond_done += 1
-            reward = 0.0
-        
-        if isinstance(action, torch.Tensor):
-            self.state = torch.stack(self.state)
-            return self.state, reward, done, {}
-        else:
-            return np.array(self.state), reward, done, {}
+        reward = torch.where(~done, 12 - theta_**2 - 0.1 * theta_dot_**2 - 0.0001 * torch.abs(u), torch.zeros(done.shape).to(device))
 
-    def reset(self):
-        state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
-        if self.swingup:
-            state[2] = (state[2] + np.pi) % (2*np.pi)
-            if state[2] >= np.pi:
-                state[2] -= 2*np.pi
+        observation = self.state + self.noise.sample()
         if self.observe_params:
-            self.state = np.append(state, self.params)
-        else:
-            self.state = state
-        self.steps_beyond_done = None
-        self.nc_sign = 1
-        return np.array(self.state)
+            observation = torch.cat((self.state, torch.stack((*self.params)).T))
+        
+        return observation, reward, done, {}
+
+    def reset(self, n=1, variance=0.05):
+        if self.randomize:
+            self.randomize_params()
+        state = self.np_random.normal(0, variance, size=(n,4))
+        if self.swingup:
+            state[:,2] = (state[:,2] + np.pi) % (2*np.pi)
+            state[:,2] = np.where(state[:,2] >= np.pi, state[:,2] - 2*np.pi, state[:,2])
+        if self.observe_params:
+            state = np.append(state, self.params)
+        self.state = torch.tensor(state, device=device).float().detach()
+        self.nc_sign = torch.ones(n).to(device)
+        return self.state
 
     def render(self, mode='human'):
         screen_width = 600
@@ -288,7 +246,7 @@ class CartPoleEnv(gym.Env):
         l,r,t,b = -polewidth/2,polewidth/2,polelen-polewidth/2,-polewidth/2
         pole.v = [(l,b), (l,t), (r,t), (r,b)]
 
-        x = self.state
+        x = self.state[0]
         cartx = x[0]*scale+screen_width/2.0 # MIDDLE OF CART
         self.carttrans.set_translation(cartx, carty)
         self.poletrans.set_rotation(-x[2])
@@ -300,47 +258,46 @@ class CartPoleEnv(gym.Env):
             self.viewer.close()
             self.viewer = None
 
-
 if __name__ == '__main__':
     import sys
     from agents.keyboard_agent import KeyboardAgent as Agent
     from sim.dc_sim import DCMotorSim
     from model import DCModel
     from util.io import read_data
-    env = CartPoleEnv(swingup=True, observe_params=False, solver='rk')
+    env = CartPoleEnv(swingup=True, observe_params=False)
     env.x_threshold = 0.4
     dc = DCMotorSim(DCModel, filename='dc_model_old.pkl')
     agent = Agent(1.0)
     memory = []
     states, actions = read_data('data.csv')
     states = torch.tensor(states).detach()
-    states_mean = states.mean(0).numpy()
-    states_std = states.std(0).numpy()
-    actions = np.array(actions)[:,None]
+    states_mean = states.mean(0)
+    states_std = states.std(0)
+    actions = torch.tensor(actions)[:,None]
     i = 0
     state = env.reset()
-    env.state = states[0]
+    #env.state = states[0]
     state = env.state
-    state_mem = np.zeros((5,4))
-    action_mem = np.zeros(5)
+    #state_mem = torch.zeros((5,4))
+    #action_mem = torch.zeros(5)
     done = False
     try:
         #for action in actions:
         while True:
             env.render()
             #state = (state - states_mean) / states_std
-            action = agent.act(state)
-            state_mem = np.roll(state_mem, -1, axis=0)
-            action_mem = np.roll(action_mem, -1)
-            state_mem[-1] = state
-            action_mem[-1] = action
-            if i >= 5:
-                comp_state = np.concatenate((state_mem.flatten(), action_mem))
-                force = dc.step(comp_state)
-            else:
-                force = np.array([0])
-            next_state, _, done, _ = env.step(force)
-            memory += [[i, state[0], state[3], action[0]]]
+            action = torch.tensor(agent.act(state))[None].float()
+            #state_mem = np.roll(state_mem, -1, axis=0)
+            #action_mem = np.roll(action_mem, -1)
+            #state_mem[-1] = state
+            #action_mem[-1] = action
+            #if i >= 5:
+            #comp_state = np.concatenate((state_mem.flatten(), action_mem))
+            #force = dc.step(comp_state)
+            #else:
+            #    force = np.array([0])
+            next_state, _, done, _ = env.step(action)
+            #memory += [[i, state[0], state[3], action[0]]]
             state = next_state
             i += 1
     except KeyboardInterrupt:
