@@ -3,7 +3,7 @@ from sim.cartpole_dc import CartPoleEnv
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines import PPO2
 
-env = CartPoleEnv(swingup=False, randomize=False)
+env = CartPoleEnv(swingup=False, randomize=False, observe_params=True)
 # Optional: PPO2 requires a vectorized environment to run
 # the env is now wrapped automatically when passing it to the constructor
 # env = DummyVecEnv([lambda: env])

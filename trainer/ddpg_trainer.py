@@ -33,7 +33,7 @@ class DDPGTrainer(Trainer):
 		self.writer.add_scalar('Epsilon', self.agent.epsilon, self.episode)
 		self.writer.add_scalar('Memory', len(self.agent.memory.memory), self.episode)
 		self.comp_state = torch.zeros((self.args.state_history, self.env.observation_space.shape[0])).to(self.device)
-		self.state = self.env.reset(variance=0.4)
+		self.state = self.env.reset(variance=0.02)
 		self.state = self.state.detach()
 		self.comp_state = torch.cat((self.state[0,None], self.comp_state[:-1]))
 		if self.args.observe_params:

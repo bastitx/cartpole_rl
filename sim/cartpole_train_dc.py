@@ -11,7 +11,6 @@ import gym
 from gym import spaces, logger
 from gym.utils import seeding
 import numpy as np
-from scipy.integrate import solve_ivp
 import torch
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -54,7 +53,7 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=True, observe_params=False, solver='rk'):
+    def __init__(self, swingup=True, observe_params=False, randomize=False):
         self.gravity = 9.81
         self.masscart = 0.43 # kg
         self.masspole = 0.05 # kg
@@ -65,15 +64,14 @@ class CartPoleEnv(gym.Env):
         self.mu_pole = 0.0003 # friction pole
         self.nc_sign = 1
         self.tau = 0.02 # seconds between state updates
-        self.solver = solver
+        self.noise = torch.distributions.normal.Normal(torch.zeros((4,)), torch.tensor([0.01, 0.0001, 0.02, 0.002]))
+
         self.swingup = swingup
         self.observe_params = observe_params
-
-        #add noise?
-        #add delay?
+        self.randomize = randomize
 
         # Angle at which to fail the episode if swingup != False
-        self.theta_threshold_radians = 0.21
+        self.theta_threshold_radians = 1.57
         self.x_threshold = 0.2 # length of tracks in meters
 
         high = np.array([self.x_threshold,
@@ -83,9 +81,9 @@ class CartPoleEnv(gym.Env):
                         dtype=np.float32)
         low = -high
         self.observation_space = spaces.Box(low, high)
-
-        low_p = np.array([0.2, 0.05, 0.03, 0.8, 0.01])
-        high_p = np.array([1.0, 0.5, 1.0, 1.5, 0.05])
+        # masscart, masspole, length, mu_pole
+        low_p = np.array([0.4, 0.03, 0.5, 0.0002])
+        high_p = np.array([0.5, 0.07, 0.7, 0.0004])
         self.param_space = spaces.Box(low_p, high_p)
         low = np.append(low, low_p)
         high = np.append(high, high_p)
@@ -108,17 +106,15 @@ class CartPoleEnv(gym.Env):
     
     @property
     def params(self):
-        return np.array([self.masscart, self.masspole, self.length, 
-                self.mu_cart, self.mu_pole])
+        return np.array([self.masscart, self.masspole, self.length, self.mu_pole])
     
     @params.setter
     def params(self, val):
-        assert(len(val) == 5)
+        assert(len(val) == 4)
         self.masscart = val[0]
         self.masspole = val[1]
         self.length = val[2]
-        self.mu_cart = val[3]
-        self.mu_pole = val[4]
+        self.mu_pole = val[3]
     
     def randomize_params(self):
         self.params = self.param_space.sample()
@@ -142,18 +138,16 @@ class CartPoleEnv(gym.Env):
         
         thetaacc = get_thetaacc()
         nc = self.total_mass * self.gravity - self.polemass_length * \
-            (thetaacc * sintheta + theta_dot**2 * costheta)
-        
+            (thetaacc * sintheta + theta_dot * theta_dot * costheta)
+
         nc_sign = torch.sign(nc * x_dot).detach()
         if (nc_sign != self.nc_sign).any():
             self.nc_sign = nc_sign
             thetaacc = get_thetaacc()
 
-        xacc  = (force + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
+        xacc = (force + self.polemass_length * (theta_dot**2 * sintheta - thetaacc * costheta) - \
             self.mu_cart * nc * nc_sign) / self.total_mass
-        
         return torch.stack([x_dot, xacc, theta_dot, thetaacc])
-
 
     def step(self, action):
         assert isinstance(action, torch.Tensor)
@@ -171,30 +165,33 @@ class CartPoleEnv(gym.Env):
         theta_ = theta_ % (2 * np.pi)
         theta_ = torch.where(theta_ >= np.pi, theta_ - 2*np.pi, theta_)
 
-        done =  (x < -self.x_threshold) | (x > self.x_threshold)
+        self.state = torch.stack((x_, x_dot_, theta_, theta_dot_)).T
+
+        done =  (x_ < -self.x_threshold) | (x_ > self.x_threshold)
         if not self.swingup:
-            done = done | (theta < -self.theta_threshold_radians) \
-                    | (theta > self.theta_threshold_radians)
+            done = done | (theta_ < -self.theta_threshold_radians) \
+                    | (theta_ > self.theta_threshold_radians)
 
-        self.state = torch.stack((x_,x_dot_,theta_,theta_dot_)).T
-        
-        if self.swingup:
-            reward = torch.where(~done, torch.cos(theta)-0.1*x**2-0.1*torch.abs(x_dot)+1.6, 0)
-        else:
-            reward = torch.where(~done, torch.ones(done.shape).to(device), torch.zeros(done.shape).to(device))
-        
-        return self.state, reward, done, {}
+        reward = torch.where(~done, 12 - theta_**2 - 0.1 * theta_dot_**2 - 0.0001 * torch.abs(force), torch.zeros(done.shape).to(device))
 
-    def reset(self):
-        state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+        observation = self.state + self.noise.sample()
+        if self.observe_params:
+            observation = torch.cat((self.state, torch.stack((*self.params)).T))
+        
+        return observation, reward, done, {}
+
+    def reset(self, n=1, variance=0.05):
+        if self.randomize:
+            self.randomize_params()
+        state = self.np_random.normal(0, variance, size=(n,4))
         if self.swingup:
-            state[2] = (state[2] + np.pi) % (2*np.pi)
-            if state[2] >= np.pi:
-                state[2] -= 2*np.pi
-        self.state = torch.tensor(state).float().detach()
-        self.steps_beyond_done = None
-        self.nc_sign = 1
-        return np.array(self.state)
+            state[:,2] = (state[:,2] + np.pi) % (2*np.pi)
+            state[:,2] = np.where(state[:,2] >= np.pi, state[:,2] - 2*np.pi, state[:,2])
+        if self.observe_params:
+            state = np.append(state, self.params)
+        self.state = torch.tensor(state, device=device).float().detach()
+        self.nc_sign = torch.ones(n).to(device)
+        return self.state
 
     def render(self, mode='human'):
         raise NotImplementedError()

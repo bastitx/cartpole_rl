@@ -1,5 +1,5 @@
 import gym
-from osi import OSI
+from agents.osi import OSI
 from sim.cartpole_dc import CartPoleEnv
 from model import ActorCriticModel
 import torch

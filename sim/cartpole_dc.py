@@ -53,7 +53,7 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=True, observe_params=False, motortest=False, solver='rk'):
+    def __init__(self, swingup=True, observe_params=False, motortest=False, solver='rk', randomize=False):
         self.gravity = 9.81 
         self.masscart = 0.43 # kg measured
         self.masspole = 0.05 # kg measured
@@ -77,13 +77,14 @@ class CartPoleEnv(gym.Env):
         self.max_voltage = 4.372 # measured 20V
         self.transform_factor = 2.697
         self.time_delay = 0 # must be integer of time steps
-        self.min_action = 0.75
+        self.min_action = 0.7
         self.noise = torch.distributions.normal.Normal(torch.zeros((4,)), torch.tensor([0.01, 0.0001, 0.02, 0.002]))
         
         self.solver = solver
         self.swingup = swingup
         self.observe_params = observe_params
         self.motortest = motortest
+        self.randomize = randomize
 
         # Angle at which to fail the episode if swingup != False
         self.theta_threshold_radians = 1.57
@@ -189,6 +190,7 @@ class CartPoleEnv(gym.Env):
         u = torch.where(torch.abs(action) < self.min_action, torch.zeros_like(u), u)
         self.delay_buffer = torch.cat((self.delay_buffer[1:], u.unsqueeze(0)))
         u = self.delay_buffer[0]
+        
         y0 = torch.stack([x, x_dot, theta, theta_dot, self.i]).to(device).detach()
         k1 = self.tau * self.f(0, y0, u)
         k2 = self.tau * self.f(self.tau / 2, y0 + k1 / 2, u)
@@ -200,11 +202,7 @@ class CartPoleEnv(gym.Env):
         theta_ = torch.where(theta_ >= np.pi, theta_ - 2*np.pi, theta_)
         self.i = i_
 
-        if self.observe_params:
-            self.state = (x_ , x_dot_, theta_, theta_dot_, *self.params)
-        else:
-            self.state = (x_, x_dot_, theta_, theta_dot_)
-        self.state = torch.stack(self.state).T
+        self.state = torch.stack((x_, x_dot_, theta_, theta_dot_)).T
 
         if self.motortest:
             return x_dot_
@@ -217,10 +215,14 @@ class CartPoleEnv(gym.Env):
         reward = torch.where(~done, 12 - theta_**2 - 0.1 * theta_dot_**2 - 0.0001 * torch.abs(u), torch.zeros(done.shape).to(device))
 
         observation = self.state + self.noise.sample()
+        if self.observe_params:
+            observation = torch.cat((self.state, torch.stack((*self.params)).T))
         
         return observation, reward, done, {}
 
     def reset(self, n=1, variance=0.05):
+        if self.randomize:
+            self.randomize_params()
         state = self.np_random.normal(0, variance, size=(n,4))
         if self.swingup:
             state[:,2] = (state[:,2] + np.pi) % (2*np.pi)
@@ -309,9 +311,9 @@ if __name__ == '__main__':
         plt.show()
     else:
         from agents.keyboard_agent import KeyboardAgent as Agent
-        env = CartPoleEnv(swingup=True, observe_params=False)
+        env = CartPoleEnv(swingup=False, observe_params=False)
         #env.x_threshold = 20
-        agent = Agent(1.0)
+        agent = Agent(0.7)
         memory = []
         i = 0
         state = env.reset()

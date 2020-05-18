@@ -38,8 +38,8 @@ class DDPGAgent():
 
     def act(self, state):
         action = self.actor(state).detach()
-        action += torch.tensor(self.epsilon * self.random_process.sample(), device=device).detach()
-        #action += np.random.normal(scale=self.epsilon)
+        #action += torch.tensor(self.epsilon * self.random_process.sample(), device=device).detach()
+        action += np.random.normal(scale=self.epsilon)
         action = torch.clamp(action, -1., 1.).squeeze(1)
         self.epsilon = max(self.epsilon*self.epsilon_decay, self.epsilon_min)
         return action.float()

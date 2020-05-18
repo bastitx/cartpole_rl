@@ -68,7 +68,7 @@ class Trainer():
 			self.state = next_state
 
 			if i - last_episode_start >= self.args.max_episode_length:
-				self.done = True
+				done = True
 
 		self.env.close()
 		if self.args.mode == 'train':
