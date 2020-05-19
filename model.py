@@ -140,24 +140,27 @@ class DCModel(nn.Module):
         super().__init__()
         self.input_shape = input_shape
         self.output_shape = output_shape
-
-        self.fc1 = nn.Linear(self.input_shape, 400)
-        self.fc2 = nn.Linear(400, 300)
+        
+        self.lstm = nn.LSTM(self.input_shape, 100)
+        self.fc2 = nn.Linear(100, 300)
         self.fc3 = nn.Linear(300, 100)
         self.fc4 = nn.Linear(100, self.output_shape)
         self.dropout = nn.Dropout(p)
 
         self.init_weights(init_w)
+        self.reset()
 
     def init_weights(self, init_w):
-        self.fc1.weight.data.uniform_(-1./np.sqrt(self.input_shape), 1./np.sqrt(self.input_shape))
-        self.fc2.weight.data.uniform_(-1./np.sqrt(400), 1./np.sqrt(400))
+        self.fc2.weight.data.uniform_(-1./np.sqrt(100), 1./np.sqrt(100))
         self.fc3.weight.data.uniform_(-1./np.sqrt(300), 1./np.sqrt(300))
         self.fc4.weight.data.uniform_(-init_w, init_w)
 
+    def reset(self, batch_size=512):
+        self.hidden = (torch.randn(1, batch_size, 100), torch.randn(1, batch_size, 100))
+
     def forward(self, x):
-        out = F.relu(self.fc1(x))
-        out = F.relu(self.fc2(out))
+        out, self.hidden = self.lstm(x[None], self.hidden)
+        out = F.relu(self.fc2(out[0]))
         out = self.dropout(out)
         out = F.relu(self.fc3(out))
         out = torch.tanh(self.fc4(out)) * 100
