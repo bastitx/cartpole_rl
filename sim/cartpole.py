@@ -159,7 +159,7 @@ class CartPoleEnv(gym.Env):
 
     def step(self, action):
         assert isinstance(action, torch.Tensor)
-        state = self.state.detach()
+        state = self.state #.detach()
         u = self.preprocessing(action)
 
         y0 = torch.stack(self.state_input(state)).to(device).detach()
