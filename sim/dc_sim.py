@@ -1,4 +1,5 @@
 import torch
+import sys
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -11,7 +12,7 @@ class DCMotorSim():
             self.model.load_state_dict(torch.load(filename, map_location=device))
     
     def step(self, action):
-        return self.model(torch.tensor(action, device=device).float()).detach().numpy()
+        return self.model(action.detach())
 
     def train(self, data, env, epochs=10, steps=100, batch_size=512, mini_batch_size=None, lr=0.001):
         assert(mini_batch_size == None or (batch_size % mini_batch_size == 0 and mini_batch_size < batch_size))
@@ -28,7 +29,7 @@ class DCMotorSim():
         weights = torch.tensor([1., 0.25, 0.2, 0.0004], device=device).detach()
         for _ in range(epochs):
             epoch_loss = []
-            for i in range(self.num_states, len(states) - 1 - (len(states) % batch_size), batch_size):
+            for i in range(self.num_states, len(states) - steps - (len(states) % batch_size), batch_size):
                 env.reset()
                 self.model.reset(batch_size)
                 env.state = states[i-1:i-1+batch_size]
@@ -38,8 +39,9 @@ class DCMotorSim():
                     force = self.model(comp_state)
                     state, *_ = env.step(force)
                     #state = (state - states_mean) / states_std
-                    comp_state = torch.stack([torch.cat((s[:(self.num_states-1)*4], state[j], actions[i+j+k-self.num_states:i+j+k])) for j, s in enumerate(comp_state)])
-                res = (states[i:i+batch_size] - state).mv(weights).pow(2)
+                    comp_state = torch.stack([torch.cat((s[:(self.num_states-1)*4], state[j], actions[i+j+k-self.num_states+1:i+j+k+1])) for j, s in enumerate(comp_state)])
+                    res += (states[i+k:i+k+batch_size] - state).mv(weights).pow(2)
+                #res = (states[i+steps:i+steps+batch_size] - state).mv(weights).pow(2) 
                 for j in range(batch_size // mini_batch_size):
                     loss = res[j*mini_batch_size:(j+1)*mini_batch_size].mean() # try abs() instead of pow(2)
                     #print("Loss: {}".format(loss))
@@ -60,6 +62,10 @@ if __name__ == "__main__":
     from sim.cartpole import CartPoleEnv
     from model import DCModel
     data = read_data('demonstration__2020-05-19__10-49-45.csv')
-    sim = DCMotorSim(DCModel, 'dc_model_old.pkl', 1)
-    env = CartPoleEnv(swingup=False)
-    sim.train(data, env, 20, batch_size=512, steps=50, mini_batch_size=64, lr=0.00001)
+    sim = DCMotorSim(DCModel, None, 1)
+    env = CartPoleEnv(swingup=True)
+    try:
+        sim.train(data, env, 50, batch_size=1, steps=16712, mini_batch_size=None, lr=0.00001)
+    except KeyboardInterrupt:
+        torch.save(sim.model.state_dict(), "dc_model_aborted.pkl")
+    sys.exit(0)

@@ -155,7 +155,7 @@ class DCModel(nn.Module):
         self.fc3.weight.data.uniform_(-1./np.sqrt(300), 1./np.sqrt(300))
         self.fc4.weight.data.uniform_(-init_w, init_w)
 
-    def reset(self, batch_size=512):
+    def reset(self, batch_size=1):
         self.hidden = (torch.randn(1, batch_size, 100), torch.randn(1, batch_size, 100))
 
     def forward(self, x):

@@ -5,26 +5,27 @@ def read_data(filename):
     with open(filename, newline='') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader) #skip header
-        i = 0  
-        x = []
-        angle = []
-        x_acc = [0]
-        angle_acc = [0]
+        x = 0
+        last_x = 0
+        last_angle = 0
+        angle = 0
+        x_acc = 0
+        angle_acc = 0
         actions = []
         states = []
         for row in reader:
-            x += [(float(row[1]) - 320) / 1000] # center the 190 position at 0 and convert mm to m
-            angle += [float(row[3]) * np.pi / 180] # angle in radians
+            x = (float(row[1]) - 320.) / 1000. # center the 190 position at 0 and convert mm to m
+            angle = float(row[3]) * np.pi / 180. # angle in radians
             actions += [float(row[5])]
-            if angle[i] >= np.pi:
-                angle[i] -= 2 * np.pi
-            if len(x) > 0:
-                x_acc += [x[i] - x[i-1]]
-                angle_acc += [angle[i] - angle[i-1]]
-                if angle_acc[i] >= np.pi:
-                    angle_acc[i] -= 2 * np.pi
-                if angle_acc[i] < - np.pi:
-                    angle_acc[i] += 2 * np.pi
-            states += [[x[i], x_acc[i], angle[i], angle_acc[i]]]
-            i += 1
+            if angle >= np.pi:
+                angle -= 2 * np.pi
+            x_acc = x - last_x
+            angle_acc = angle - last_angle
+            if angle_acc >= np.pi:
+                angle_acc -= 2 * np.pi
+            if angle_acc < - np.pi:
+                angle_acc += 2 * np.pi
+            states += [[x, x_acc, angle, angle_acc]]
+            last_x = x
+            last_angle = angle
     return states, actions
