@@ -142,10 +142,10 @@ class DCModel(nn.Module):
         self.output_shape = output_shape
         
         #self.lstm = nn.LSTM(self.input_shape, 100)
-        self.fc1 = nn.Linear(self.input_shape, 400)
-        self.fc2 = nn.Linear(400, 300)
-        self.fc3 = nn.Linear(300, 100)
-        self.fc4 = nn.Linear(100, self.output_shape)
+        self.fc1 = nn.Linear(self.input_shape, 50)
+        self.fc2 = nn.Linear(50, 50)
+        self.fc3 = nn.Linear(50, 50)
+        self.fc4 = nn.Linear(50, self.output_shape)
         self.dropout = nn.Dropout(p)
 
         self.init_weights(init_w)
@@ -153,8 +153,8 @@ class DCModel(nn.Module):
 
     def init_weights(self, init_w):
         self.fc1.weight.data.uniform_(-1./np.sqrt(self.input_shape), 1./np.sqrt(self.input_shape))
-        self.fc2.weight.data.uniform_(-1./np.sqrt(400), 1./np.sqrt(400))
-        self.fc3.weight.data.uniform_(-1./np.sqrt(300), 1./np.sqrt(300))
+        self.fc2.weight.data.uniform_(-1./np.sqrt(50), 1./np.sqrt(50))
+        self.fc3.weight.data.uniform_(-1./np.sqrt(50), 1./np.sqrt(50))
         self.fc4.weight.data.uniform_(-init_w, init_w)
 
     def reset(self, batch_size=1):
