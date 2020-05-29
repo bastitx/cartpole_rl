@@ -53,7 +53,7 @@ class CartPoleEnv(gym.Env):
         'video.frames_per_second' : 50
     }
 
-    def __init__(self, swingup=True, observe_params=False, randomize=False):
+    def __init__(self, swingup=True, observe_params=False, randomize=False, solid_bounds=False):
         self.gravity = 9.81
         self.masscart = 0.43 # kg
         self.masspole = 0.05 # kg
@@ -69,6 +69,7 @@ class CartPoleEnv(gym.Env):
         self.swingup = swingup
         self.observe_params = observe_params
         self.randomize = randomize
+        self.solid_bounds = solid_bounds
 
         # Angle at which to fail the episode if swingup != False
         self.theta_threshold_radians = 1.57
@@ -172,6 +173,11 @@ class CartPoleEnv(gym.Env):
         theta_ = theta_ % (2 * np.pi)
         theta_ = torch.where(theta_ >= np.pi, theta_ - 2*np.pi, theta_)
 
+        if self.solid_bounds:
+            x_dot_ = torch.where((x_ > self.x_threshold) | (x_ < -self.x_threshold), torch.zeros_like(x_dot_), x_dot_)
+            x_ = torch.where(x_ > self.x_threshold, self.x_threshold * torch.ones_like(x_), x_)
+            x_ = torch.where(x_ < -self.x_threshold, -self.x_threshold * torch.ones_like(x_), x_)
+
         self.state = torch.stack((x_, x_dot_, theta_, theta_dot_)).T
 
         done =  (x_ < -self.x_threshold) | (x_ > self.x_threshold)
@@ -264,8 +270,8 @@ if __name__ == '__main__':
     from sim.dc_sim import DCMotorSim
     from model import DCModel
     from util.io import read_data
-    env = CartPoleEnv(swingup=True, observe_params=False)
-    env.x_threshold = 10.0
+    env = CartPoleEnv(swingup=True, observe_params=False, solid_bounds=True)
+    #env.x_threshold = 2.0
     dc = DCMotorSim(DCModel, 'dc_model_old.pkl', 5)
     agent = Agent(1.0)
     memory = []
@@ -290,11 +296,12 @@ if __name__ == '__main__':
             state_mem = torch.cat((state_mem[1:5], state))
             action_mem = torch.cat((action_mem[1:5], action))
             if i >= 5:
-                comp_state = torch.cat((state_mem.flatten(), action_mem.flatten()))
+                comp_state = torch.cat((state_mem.flatten().detach(), action_mem.flatten().detach()))
                 force = dc.step(comp_state)[None]
             else:
-                force = torch.tensor([[0]])
+                force = torch.tensor([[0]]).detach()
             next_state, _, done, _ = env.step(force)
+            print(state, force)
             #memory += [[i, state[0], state[3], action[0]]]
             state = next_state
             i += 1
