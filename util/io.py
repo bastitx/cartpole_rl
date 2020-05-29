@@ -9,8 +9,8 @@ def read_data(filename):
         last_x = 0
         last_angle = 0
         angle = 0
-        x_acc = 0
-        angle_acc = 0
+        x_dot = 0
+        angle_dot = 0
         actions = []
         states = []
         for row in reader:
@@ -19,13 +19,13 @@ def read_data(filename):
             actions += [float(row[5])]
             if angle >= np.pi:
                 angle -= 2 * np.pi
-            x_acc = x - last_x
-            angle_acc = angle - last_angle
-            if angle_acc >= np.pi:
-                angle_acc -= 2 * np.pi
-            if angle_acc < - np.pi:
-                angle_acc += 2 * np.pi
-            states += [[x, x_acc, angle, angle_acc]]
+            x_dot = (x - last_x) / 0.02
+            angle_dot = (angle - last_angle) / 0.02
+            if angle_dot >= np.pi:
+                angle_dot -= 2 * np.pi
+            if angle_dot < - np.pi:
+                angle_dot += 2 * np.pi
+            states += [[x, x_dot, angle, angle_dot]]
             last_x = x
             last_angle = angle
     return states, actions
