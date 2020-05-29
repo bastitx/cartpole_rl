@@ -159,7 +159,7 @@ class CartPoleEnv(gym.Env):
 
     def step(self, action):
         assert isinstance(action, torch.Tensor)
-        state = self.state #.detach()
+        state = self.state.detach()
         u = self.preprocessing(action)
 
         y0 = torch.stack(self.state_input(state)).to(device).detach()
@@ -265,8 +265,8 @@ if __name__ == '__main__':
     from model import DCModel
     from util.io import read_data
     env = CartPoleEnv(swingup=True, observe_params=False)
-    env.x_threshold = 0.4
-    dc = DCMotorSim(DCModel, 'dc_model_old.pkl', 1)
+    env.x_threshold = 10.0
+    dc = DCMotorSim(DCModel, 'dc_model_old.pkl', 5)
     agent = Agent(1.0)
     memory = []
     states, actions = read_data('demonstration__2020-05-19__10-49-45.csv')
@@ -276,10 +276,10 @@ if __name__ == '__main__':
     actions = torch.tensor(actions)[:,None]
     i = 0
     state = env.reset()
-    env.state = states[0,None]
-    state = env.state
-    #state_mem = torch.zeros((5,4))
-    #action_mem = torch.zeros(5)
+    #env.state = states[0,None]
+    #state = env.state
+    state_mem = torch.zeros((5,4))
+    action_mem = torch.zeros((5,1))
     done = False
     try:
         #for action in actions:
@@ -287,15 +287,13 @@ if __name__ == '__main__':
             env.render()
             #state = (state - states_mean) / states_std
             action = torch.tensor(agent.act(state))[None].float()
-            #state_mem = np.roll(state_mem, -1, axis=0)
-            #action_mem = np.roll(action_mem, -1)
-            #state_mem[-1] = state
-            #action_mem[-1] = action
-            #if i >= 5:
-            comp_state = torch.cat((state, action), axis=1)
-            force = dc.step(comp_state)
-            #else:
-            #    force = np.array([0])
+            state_mem = torch.cat((state_mem[1:5], state))
+            action_mem = torch.cat((action_mem[1:5], action))
+            if i >= 5:
+                comp_state = torch.cat((state_mem.flatten(), action_mem.flatten()))
+                force = dc.step(comp_state)[None]
+            else:
+                force = torch.tensor([[0]])
             next_state, _, done, _ = env.step(force)
             #memory += [[i, state[0], state[3], action[0]]]
             state = next_state
