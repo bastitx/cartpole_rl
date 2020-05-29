@@ -27,12 +27,12 @@ class DCMotorSim():
         #states_std = states.std(0)
         #states = (states - states_mean) / states_std
         actions = torch.tensor(actions, device=device).detach()
-        weights = torch.tensor([1., 0.25, 0.0, 0.0000], device=device).detach()
+        weights = torch.tensor([1., 0.2, 0.0, 0.0000], device=device).detach()
         smallest_loss = np.inf
         for epoch in range(epochs):
             epoch_loss = []
             for i in range(self.num_states, len(states) - steps - (batch_size-1)*batch_step - (len(states) % batch_size), batch_size*batch_step):
-                state_bias = torch.normal(torch.zeros((batch_size, 4)), torch.cat((0.4 * torch.ones((batch_size, 1)), torch.zeros((batch_size, 3))), dim=1)).detach()
+                state_bias = torch.zeros((batch_size,4))# torch.normal(torch.zeros((batch_size, 4)), torch.cat((0.4 * torch.ones((batch_size, 1)), torch.zeros((batch_size, 3))), dim=1)).detach()
                 env.reset()
                 self.model.reset(batch_size)
                 env.state = states[i-1:i-1+batch_size*batch_step:batch_step] + state_bias
@@ -56,7 +56,7 @@ class DCMotorSim():
                         loss.backward(retain_graph=True)
                     optim.step()
                 
-            print("---------------------\nMean Episode Loss: {}".format(sum(epoch_loss)/len(epoch_loss)))
+            print("---------------------\nMean Epoch Loss {}: {}".format(epoch, sum(epoch_loss)/len(epoch_loss)))
             if sum(epoch_loss)/len(epoch_loss) < smallest_loss:
                 smallest_loss = sum(epoch_loss)/len(epoch_loss)
                 torch.save(self.model.state_dict(), "dc_model_{}.pkl".format(epoch))
@@ -67,10 +67,10 @@ if __name__ == "__main__":
     from sim.cartpole import CartPoleEnv
     from model import DCModel
     data = read_data('demonstration__2020-05-19__10-49-45.csv')
-    sim = DCMotorSim(DCModel, 'dc_model_old.pkl', 5)
+    sim = DCMotorSim(DCModel, None, 5)
     env = CartPoleEnv(swingup=True)
     try:
-        sim.train(data, env, 1000, batch_size=512, steps=1, mini_batch_size=8, batch_step=1, lr=0.0000001)
+        sim.train(data, env, 1000, batch_size=128, steps=1, mini_batch_size=None, batch_step=1, lr=0.001)
     except KeyboardInterrupt:
         torch.save(sim.model.state_dict(), "dc_model_aborted.pkl")
     sys.exit(0)

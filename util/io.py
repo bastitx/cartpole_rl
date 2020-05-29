@@ -20,11 +20,12 @@ def read_data(filename):
             if angle >= np.pi:
                 angle -= 2 * np.pi
             x_dot = (x - last_x) / 0.02
-            angle_dot = (angle - last_angle) / 0.02
+            angle_dot = (angle - last_angle)
             if angle_dot >= np.pi:
                 angle_dot -= 2 * np.pi
             if angle_dot < - np.pi:
                 angle_dot += 2 * np.pi
+            angle_dot /= 0.02
             states += [[x, x_dot, angle, angle_dot]]
             last_x = x
             last_angle = angle
