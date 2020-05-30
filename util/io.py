@@ -16,7 +16,7 @@ def read_data(filename):
         for row in reader:
             x = (float(row[1]) - 320.) / 1000. # center the 190 position at 0 and convert mm to m
             angle = float(row[3]) * np.pi / 180. # angle in radians
-            actions += [float(row[5])]
+            actions += [-float(row[5])]
             if angle >= np.pi:
                 angle -= 2 * np.pi
             x_dot = (x - last_x) / 0.02
