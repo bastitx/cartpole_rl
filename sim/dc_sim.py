@@ -27,7 +27,7 @@ class DCMotorSim():
         #states_std = states.std(0)
         #states = (states - states_mean) / states_std
         actions = torch.tensor(actions, device=device).detach()
-        weights = torch.tensor([1., 0.2, 0.0, 0.0000], device=device).detach()
+        weights = torch.tensor([1., 0.25, 0.0, 0.0000], device=device).detach()
         smallest_loss = np.inf
         for epoch in range(epochs):
             epoch_loss = []

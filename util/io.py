@@ -19,7 +19,7 @@ def read_data(filename):
             actions += [-float(row[5])]
             if angle >= np.pi:
                 angle -= 2 * np.pi
-            x_dot = (x - last_x) / 0.02
+            x_dot = - (x - last_x) / 0.02
             angle_dot = (angle - last_angle)
             if angle_dot >= np.pi:
                 angle_dot -= 2 * np.pi

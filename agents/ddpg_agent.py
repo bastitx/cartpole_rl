@@ -40,7 +40,7 @@ class DDPGAgent():
         action = self.actor(state).detach()
         #action += torch.tensor(self.epsilon * self.random_process.sample(), device=device).detach()
         action += np.random.normal(scale=self.epsilon)
-        action = torch.clamp(action, -1., 1.).squeeze(1)
+        action = torch.clamp(action, -1., 1.)
         self.epsilon = max(self.epsilon*self.epsilon_decay, self.epsilon_min)
         return action.float()
 
@@ -53,7 +53,7 @@ class DDPGAgent():
         transitions = self.memory.sample(self.batch_size)
         batch = Transition(*zip(*transitions))
         state_batch = torch.cat(batch.state)
-        action_batch = torch.cat(batch.action).unsqueeze(1)
+        action_batch = torch.cat(batch.action)
         reward_batch = torch.cat(batch.reward).unsqueeze(1)
         done_batch = torch.cat(batch.done).unsqueeze(1).float()
 

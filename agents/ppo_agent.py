@@ -26,7 +26,7 @@ class PPOAgent():
 
     def act(self, state):
         action, logprob = self.policy_old.act(state)
-        action = torch.clamp(action, -1, 1).squeeze(1)
+        action = torch.clamp(action, -1, 1)
         return action.detach(), logprob.detach()
 
     def remember(self, *args):

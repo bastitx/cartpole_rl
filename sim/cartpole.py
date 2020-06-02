@@ -93,7 +93,7 @@ class CartPoleEnv(gym.Env):
         if self.observe_params:
             self.observation_space = self.param_observation_space
 
-        self.action_space = spaces.Box(np.array([-100]), np.array([100]))
+        self.action_space = spaces.Box(np.array([-10]), np.array([10]))
 
         self.seed()
         self.viewer = None
@@ -270,10 +270,10 @@ if __name__ == '__main__':
     from sim.dc_sim import DCMotorSim
     from model import DCModel
     from util.io import read_data
-    env = CartPoleEnv(swingup=True, observe_params=False, solid_bounds=True)
+    env = CartPoleEnv(swingup=True, observe_params=False, solid_bounds=False)
     #env.x_threshold = 2.0
     dc = DCMotorSim(DCModel, 'dc_model_old.pkl', 5)
-    agent = Agent(1.0)
+    agent = Agent(0.9)
     memory = []
     states, actions = read_data('demonstration__2020-05-19__10-49-45.csv')
     states = torch.tensor(states).detach()
@@ -301,7 +301,6 @@ if __name__ == '__main__':
             else:
                 force = torch.tensor([[0]]).detach()
             next_state, _, done, _ = env.step(force)
-            print(state, force)
             #memory += [[i, state[0], state[3], action[0]]]
             state = next_state
             i += 1
