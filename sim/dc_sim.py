@@ -27,12 +27,12 @@ class DCMotorSim():
         #states_std = states.std(0)
         #states = (states - states_mean) / states_std
         actions = torch.tensor(actions, device=device).detach()
-        weights = torch.tensor([1., 0.25, 0.0, 0.0000], device=device).detach()
+        weights = torch.tensor([1., 0.25, 0.01, 0.0001], device=device).detach()
         smallest_loss = np.inf
         for epoch in range(epochs):
             epoch_loss = []
             for i in range(self.num_states, len(states) - steps - (batch_size-1)*batch_step - (len(states) % batch_size), batch_size*batch_step):
-                state_bias = torch.zeros((batch_size,4))# torch.normal(torch.zeros((batch_size, 4)), torch.cat((0.4 * torch.ones((batch_size, 1)), torch.zeros((batch_size, 3))), dim=1)).detach()
+                state_bias = torch.normal(torch.zeros((batch_size, 4)), torch.cat((0.4 * torch.ones((batch_size, 1)), torch.zeros((batch_size, 3))), dim=1)).detach()
                 env.reset()
                 self.model.reset(batch_size)
                 env.state = states[i-1:i-1+batch_size*batch_step:batch_step] + state_bias
