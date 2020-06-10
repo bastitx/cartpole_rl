@@ -12,7 +12,7 @@ class PPOTrainer(Trainer):
 		self.parser.add_argument('--memory-size', default=4096, type=int)
 		self.parser.add_argument('--epochs', default=16, type=int)
 		self.parser.add_argument('--init-variance', default=0.25, type=float)
-		self.parser.add_argument('--state-history', default=4, type=int)
+		self.parser.add_argument('--state-history', default=5, type=int)
 		self.args = self.parser.parse_args()
 		
 		self.init_env(Env)
@@ -34,7 +34,7 @@ class PPOTrainer(Trainer):
 		self.state = self.state.detach()
 	
 	def train_step(self, i):
-		self.comp_state = torch.cat((self.state[0,None], self.comp_state[:-1]))
+		self.comp_state = torch.cat((self.comp_state[1:], self.state[0,None]))
 		if self.args.observe_params:
 			comp_state_ = torch.cat((self.comp_state.flatten(), torch.tensor(self.env.params, device=self.device).float().detach())).unsqueeze(0)
 		else:
