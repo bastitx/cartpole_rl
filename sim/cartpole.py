@@ -60,7 +60,7 @@ class CartPoleEnv(gym.Env):
         self.total_mass = (self.masspole + self.masscart)
         self.length = 0.13 # actually half the pole's length in meters
         self.polemass_length = (self.masspole * self.length)
-        self.mu_cart = 0.0 # friction cart
+        self.mu_cart = 0.0005 # friction cart
         self.mu_pole = 0.0003 # friction pole
         self.nc_sign = 1
         self.tau = 0.02 # seconds between state updates
@@ -93,7 +93,7 @@ class CartPoleEnv(gym.Env):
         if self.observe_params:
             self.observation_space = self.param_observation_space
 
-        self.action_space = spaces.Box(np.array([-10]), np.array([10]))
+        self.action_space = spaces.Box(np.array([-1]), np.array([1]))
 
         self.seed()
         self.viewer = None

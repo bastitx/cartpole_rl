@@ -22,16 +22,14 @@ class CartPoleNNDCEnv(CartPoleEnv):
     def __init__(self, swingup=True, observe_params=False, randomize=False, num_states=5):
         super().__init__(swingup, observe_params, randomize)
         self.min_action = 0.0
+        self.mu_cart = 0.0 # friction cart
         self.dc = DCMotorSim(DCModel, 'dc_model_old.pkl', num_states)
         self.num_states = num_states
-
-        self.seed()
-        self.viewer = None
-        self.state = None
+        self.action_space = spaces.Box(np.array([-10]), np.array([10]))
     
     def preprocessing(self, action):
         self.state_mem = torch.cat((self.state_mem[1:self.num_states].detach(), self.state))
-        self.action_mem = torch.cat((self.action_mem[1:self.num_states].detach(), action))
+        self.action_mem = torch.cat((self.action_mem[1:self.num_states].detach(), action.unsqueeze(0)))
         if self.initializing or action.abs().item() < self.min_action:
             force = torch.tensor([[0]]).detach()
         else:
@@ -49,7 +47,7 @@ class CartPoleNNDCEnv(CartPoleEnv):
         self.action_mem = torch.zeros((self.num_states,1))
         self.initializing = True
         for _ in range(self.num_states):
-            state, _, _, _ = self.step(torch.tensor([[0.0]]).detach())
+            state, _, _, _ = self.step(torch.tensor([0.0]).detach())
         self.initializing = False
         return state
 

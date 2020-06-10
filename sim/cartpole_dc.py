@@ -52,10 +52,6 @@ class CartPoleDCEnv(CartPoleEnv):
             self.observation_space = self.param_observation_space
 
         self.action_space = spaces.Box(np.array([-1]), np.array([1]))
-
-        self.seed()
-        self.viewer = None
-        self.state = None
     
     @property
     def params(self):
@@ -117,7 +113,7 @@ class CartPoleDCEnv(CartPoleEnv):
         return torch.stack([x_dot, xacc, theta_dot, thetaacc, i_dot])
     
     def preprocessing(self, action):
-        u = torch.sign(action) * (torch.abs(action) * self.max_voltage)**self.transform_factor
+        u = torch.sign(action) * torch.abs(action)**self.transform_factor * self.max_voltage
         u = torch.where(torch.abs(action) < self.min_action, torch.zeros_like(u), u)
         self.delay_buffer = torch.cat((self.delay_buffer[1:], u.unsqueeze(0)))
         return self.delay_buffer[0]
@@ -137,59 +133,6 @@ class CartPoleDCEnv(CartPoleEnv):
         self.delay_buffer = torch.zeros((int(self.time_delay) + 1, n)).to(device)
         return state
 
-    def render(self, mode='human'):
-        screen_width = 600
-        screen_height = 400
-
-        world_width = self.x_threshold*2
-        scale = screen_width/world_width
-        carty = 100 # TOP OF CART
-        polewidth = 10.0
-        polelen = scale * (2 * self.length)
-        cartwidth = 50.0
-        cartheight = 30.0
-
-        if self.viewer is None:
-            from gym.envs.classic_control import rendering
-            self.viewer = rendering.Viewer(screen_width, screen_height)
-            l,r,t,b = -cartwidth/2, cartwidth/2, cartheight/2, -cartheight/2
-            axleoffset =cartheight/4.0
-            cart = rendering.FilledPolygon([(l,b), (l,t), (r,t), (r,b)])
-            self.carttrans = rendering.Transform()
-            cart.add_attr(self.carttrans)
-            self.viewer.add_geom(cart)
-            l,r,t,b = -polewidth/2,polewidth/2,polelen-polewidth/2,-polewidth/2
-            pole = rendering.FilledPolygon([(l,b), (l,t), (r,t), (r,b)])
-            pole.set_color(.8,.6,.4)
-            self.poletrans = rendering.Transform(translation=(0, axleoffset))
-            pole.add_attr(self.poletrans)
-            pole.add_attr(self.carttrans)
-            self.viewer.add_geom(pole)
-            self.axle = rendering.make_circle(polewidth/2)
-            self.axle.add_attr(self.poletrans)
-            self.axle.add_attr(self.carttrans)
-            self.axle.set_color(.5,.5,.8)
-            self.viewer.add_geom(self.axle)
-            self.track = rendering.Line((0,carty), (screen_width,carty))
-            self.track.set_color(0,0,0)
-            self.viewer.add_geom(self.track)
-
-            self._pole_geom = pole
-
-        if self.state is None: return None
-
-        # Edit the pole polygon vertex
-        pole = self._pole_geom
-        l,r,t,b = -polewidth/2,polewidth/2,polelen-polewidth/2,-polewidth/2
-        pole.v = [(l,b), (l,t), (r,t), (r,b)]
-
-        x = self.state[0]
-        cartx = x[0]*scale+screen_width/2.0 # MIDDLE OF CART
-        self.carttrans.set_translation(cartx, carty)
-        self.poletrans.set_rotation(-x[2])
-
-        return self.viewer.render(return_rgb_array = mode=='rgb_array')
-
     def close(self):
         if self.viewer:
             self.viewer.close()
@@ -200,7 +143,7 @@ if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1 and '--motor-test' in sys.argv:
         import matplotlib.pyplot as plt
-        env = CartPoleEnv(swingup=True, observe_params=False, motortest=True)
+        env = CartPoleDCEnv(swingup=True, observe_params=False, motortest=True)
         n = 100
         us = [0.5, 0.75, 1] # * 20V
         for u in us:
@@ -213,9 +156,9 @@ if __name__ == '__main__':
         plt.show()
     else:
         from agents.keyboard_agent import KeyboardAgent as Agent
-        env = CartPoleEnv(swingup=False, observe_params=False)
+        env = CartPoleDCEnv(swingup=False, observe_params=False)
         #env.x_threshold = 20
-        agent = Agent(0.7)
+        agent = Agent(0.9)
         memory = []
         i = 0
         state = env.reset()
@@ -223,7 +166,7 @@ if __name__ == '__main__':
         try:
             while True:
                 env.render()
-                action = torch.tensor(agent.act(state), device=device).float()
+                action = torch.tensor(agent.act(state)[None], device=device).float()
                 next_state, _, done, _ = env.step(action)
                 #memory += [[i, state[0], state[3], action[0]]]
                 state = next_state
