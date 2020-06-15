@@ -21,7 +21,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class CartPoleNNDCEnv(CartPoleEnv):
     def __init__(self, swingup=True, observe_params=False, randomize=False, num_states=5):
         super().__init__(swingup, observe_params, randomize)
-        self.min_action = 0.0
+        self.min_action = 0.7
         self.mu_cart = 0.0 # friction cart
         self.dc = DCMotorSim(DCModel, 'dc_model_old.pkl', num_states)
         self.num_states = num_states
