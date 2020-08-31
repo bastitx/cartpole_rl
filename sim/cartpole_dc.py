@@ -28,10 +28,10 @@ class CartPoleDCEnv(CartPoleEnv):
         self.mass_pulley = 0.05 # there are two pulleys, estimate of the mass
         self.J_load = self.total_mass * self.radius**2 + 2 * 1 / 2 * self.mass_pulley * self.radius**2
         self.J = self.J_rotor #self.J_rotor # should this be J_rotor + J_load or just J_rotor?
-        self.max_voltage = 4.372 # measured 20V
-        self.transform_factor = 2.697
+        self.max_voltage = 70 # measured 20V
+        self.transform_factor = 10
         self.time_delay = 0 # must be integer of time steps
-        self.min_action = 0.7
+        self.min_action = 0.0
 
         high = np.array([self.x_threshold,
                          np.finfo(np.float32).max,

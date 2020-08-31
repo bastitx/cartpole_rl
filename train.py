@@ -1,12 +1,12 @@
-from sim.cartpole_nn_dc import CartPoleNNDCEnv as CartPoleEnv
+from sim.cartpole_dc import CartPoleDCEnv as CartPoleEnv
 from model import ActorModel, CriticModel, ActorCriticModel
 import sys
 from trainer.ddpg_trainer import DDPGTrainer
 from trainer.ppo_trainer import PPOTrainer
 
 def main():
-	#trainer = DDPGTrainer(CartPoleEnv, ActorModel, CriticModel)
-	trainer = PPOTrainer(CartPoleEnv, ActorCriticModel)
+	trainer = DDPGTrainer(CartPoleEnv, ActorModel, CriticModel)
+	#trainer = PPOTrainer(CartPoleEnv, ActorCriticModel)
 	try:
 		trainer.train()
 	except KeyboardInterrupt:

@@ -180,18 +180,23 @@ class CartPoleEnv(gym.Env):
 
         self.state = torch.stack((x_, x_dot_, theta_, theta_dot_)).T
 
-        done =  (x_ < -self.x_threshold) | (x_ > self.x_threshold)
-        if not self.swingup:
-            done = done | (theta_ < -self.theta_threshold_radians) \
-                    | (theta_ > self.theta_threshold_radians)
-
-        reward = torch.where(~done, 12 - theta_**2 - 0.1 * theta_dot_**2 - 0.0001 * torch.abs(u), torch.zeros(done.shape).to(device))
-
+        reward, done = self.reward_done(u)
+        
         observation = self.state + self.noise.sample()
         if self.observe_params:
             observation = torch.cat((self.state, torch.stack((*self.params)).T))
         
         return observation, reward, done, {}
+    
+    def reward_done(self, action):
+        done = (self.state[:,0] < -self.x_threshold) | (self.state[:,0] > self.x_threshold)
+        if not self.swingup:
+            done = done | (self.state[:,2] < -self.theta_threshold_radians) \
+                    | (self.state[:,2] > self.theta_threshold_radians)
+
+        reward = torch.where(~done, 10 - self.state[:,2]**2 - torch.log(self.state[:,2]**2 + 0.1) - 0.2 * torch.abs(self.state[:,0]), torch.zeros(done.shape).to(device))
+        return reward, done
+
 
     def reset(self, n=1, variance=0.05):
         if self.randomize:
@@ -199,6 +204,7 @@ class CartPoleEnv(gym.Env):
         state = self.np_random.normal(0, variance, size=(n,4))
         if self.swingup:
             state[:,2] = (state[:,2] + np.pi) % (2*np.pi)
+            #state[:,2] = self.np_random.uniform(high=2*np.pi, size=n) % (2*np.pi)
             state[:,2] = np.where(state[:,2] >= np.pi, state[:,2] - 2*np.pi, state[:,2])
         if self.observe_params:
             state = np.append(state, self.params)

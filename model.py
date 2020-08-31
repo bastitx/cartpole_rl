@@ -86,7 +86,7 @@ class ActorCriticModel(nn.Module):
 
         self.actor = ActorModel(self.state_shape, self.action_shape)
         self.critic = CriticModel2(self.state_shape, self.action_shape)
-        self.action_var = torch.nn.Parameter(torch.full(action_shape, action_var)).to(device)
+        self.action_var = torch.full(action_shape, action_var).to(device) # torch.nn.Parameter(torch.full(action_shape, action_var)).to(device)
     
     def forward(self):
         raise NotImplementedError
